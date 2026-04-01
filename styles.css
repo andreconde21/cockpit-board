@@ -1417,3 +1417,12 @@ body.is-mobile .cockpit-cal-day-header {
 .cockpit-settings-labels {
   margin-bottom: 12px;
 }
+
+/* ── Confirm modal ───────────────────────────────────────── */
+
+.cockpit-confirm-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}

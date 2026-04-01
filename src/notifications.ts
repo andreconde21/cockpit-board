@@ -1,5 +1,6 @@
 import { TFile, TFolder, Notice } from "obsidian";
 import type { CockpitBoardSettings } from "./types";
+import { fmStr } from "./ui/dom-helpers.js";
 
 export function scheduleNotifications(
   settings: CockpitBoardSettings,
@@ -26,7 +27,7 @@ export function scheduleNotifications(
     const key = `${child.path}-${todayStr}`;
     if (notifiedToday.has(key)) continue;
 
-    const timeStr = String(fm.time);
+    const timeStr = fmStr(fm.time);
     const [h, m] = timeStr.split(":").map(Number);
     if (isNaN(h) || isNaN(m)) continue;
 
@@ -34,9 +35,10 @@ export function scheduleNotifications(
     const minutesUntil = (dueTime.getTime() - now.getTime()) / 60000;
 
     if (minutesUntil > 0 && minutesUntil <= 15) {
-      const title = fm.title || child.basename;
-      const project = fm.project ? `[${fm.project}] ` : "";
-      new Notice(`\uD83D\uDD14 ${project}${title} starts in ${Math.round(minutesUntil)} minutes`, 10000);
+      const title = fmStr(fm.title) || child.basename;
+      const project = fmStr(fm.project);
+      const prefix = project ? `[${project}] ` : "";
+      new Notice(`\uD83D\uDD14 ${prefix}${title} starts in ${Math.round(minutesUntil)} minutes`, 10000);
       notifiedToday.add(key);
     }
   }

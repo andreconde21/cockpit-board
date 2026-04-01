@@ -19,6 +19,8 @@ export interface CockpitBoardSettings {
   cardOpenMode: "split" | "sidebar" | "modal";
   mobileDefaultColumn: string;
   labelColors: Record<string, string>;
+  adjustDateOnMove: boolean;
+  setTodayOnMove: boolean;
 }
 
 export interface CardData {

@@ -23,6 +23,8 @@ export const DEFAULT_SETTINGS: CockpitBoardSettings = {
   cardOpenMode: "split",
   mobileDefaultColumn: "in-progress",
   labelColors: {},
+  adjustDateOnMove: true,
+  setTodayOnMove: true,
 };
 
 export const DEFAULT_PALETTE = [

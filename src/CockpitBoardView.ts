@@ -2,19 +2,20 @@ import {
   ItemView, WorkspaceLeaf, TFile, TFolder, Menu, Modal,
   MarkdownRenderer, Notice, Platform, setIcon,
 } from "obsidian";
+import { ConfirmModal } from "./ui/confirm-modal";
 import type { CardData, ColumnConfig, CalendarCardData, CockpitBoardSettings, TimerData } from "./types";
 import { VIEW_TYPE } from "./constants";
 import { CockpitCard } from "./CockpitCard";
 import { getDropUpdates } from "./rule-engine";
-import { todayStr, getToday, getTomorrow, parseDate, getLabelColor } from "./ui/dom-helpers";
-import { createCard, type CardRendererContext } from "./ui/card-renderer";
+import { todayStr, getToday, getTomorrow, parseDate } from "./ui/dom-helpers";
+import { type CardRendererContext } from "./ui/card-renderer";
 import { createColumn, type ColumnRendererContext } from "./ui/column-renderer";
 import {
   toggleSelectCard, selectRange, clearSelection,
   updateSelectionBar, showBulkMenu, type SelectionContext,
 } from "./ui/selection-manager";
 import { ChecklistEditorModal } from "./ui/checklist-editor";
-import { DateTimePickerModal, BulkDateTimePickerModal } from "./ui/date-time-picker";
+import { DateTimePickerModal } from "./ui/date-time-picker";
 import { renderCalendarView, hideYearTooltip, type CalendarViewContext } from "./calendar/CalendarView";
 import { renderArchiveSearch, loadArchiveCardsForRange, type ArchiveContext } from "./archive/ArchiveSearch";
 import type CockpitBoardPlugin from "./CockpitBoardPlugin";
@@ -46,7 +47,7 @@ export class CockpitBoardView extends ItemView {
   }
 
   getViewType(): string { return VIEW_TYPE; }
-  getDisplayText(): string { return "Cockpit Board"; }
+  getDisplayText(): string { return "Cockpit board"; }
   getIcon(): string { return "layout-grid"; }
 
   get columns(): ColumnConfig[] { return this.plugin.settings.columns; }
@@ -68,7 +69,7 @@ export class CockpitBoardView extends ItemView {
         if (this.selectedCards.size === 0) {
           e.preventDefault();
           this.focusMode = !this.focusMode;
-          this.render();
+          void this.render();
           this.toast(this.focusMode ? "Focus mode: Today + In Progress" : "Focus mode off");
           return;
         }
@@ -76,24 +77,24 @@ export class CockpitBoardView extends ItemView {
       if (this.selectedCards.size === 0) return;
       if (e.key === "d" || e.key === "D") {
         e.preventDefault();
-        this.bulkMarkDone();
+        void this.bulkMarkDone();
       } else if (e.key === "t" || e.key === "T") {
         e.preventDefault();
         this.pauseRefresh = true;
-        (async () => {
+        void (async () => {
           for (const { card } of this.selectedCards.values()) {
             await this.updateCardProperty(card.file, { status: "scheduled", due: todayStr() });
           }
           this.pauseRefresh = false;
           this.clearSelection();
-          this.render();
+          void this.render();
         })();
       } else if (e.key === "Delete" || e.key === "Backspace") {
         e.preventDefault();
         this.bulkDelete();
       } else if (e.key === "n" || e.key === "N") {
         e.preventDefault();
-        this.promptForTitle("New task").then(title => { if (title) this.createCardInColumn(title, this.columns[0]); });
+        void this.promptForTitle("New task").then(title => { if (title) void this.createCardInColumn(title, this.columns[0]); });
       }
     });
   }
@@ -106,7 +107,7 @@ export class CockpitBoardView extends ItemView {
   debouncedRefresh(): void {
     if (this.pauseRefresh) return;
     if (this.refreshTimer) clearTimeout(this.refreshTimer);
-    this.refreshTimer = setTimeout(() => this.render(), 500);
+    this.refreshTimer = setTimeout(() => { void this.render(); }, 500);
   }
 
   async loadCards(): Promise<CardData[]> {
@@ -200,7 +201,7 @@ export class CockpitBoardView extends ItemView {
     // First-run: show setup prompt if folder not configured
     if (!this.settings.folder) {
       const welcome = contentEl.createDiv({ cls: "cockpit-welcome" });
-      welcome.createEl("h2", { text: "Welcome to Cockpit Board!" });
+      welcome.createEl("h2", { text: "Welcome to Cockpit board!" });
       welcome.createEl("p", { text: "Set your tasks folder in Settings to get started." });
       welcome.createEl("p", { text: "Go to Settings \u2192 Cockpit Board \u2192 Tasks folder" });
       return;
@@ -212,7 +213,7 @@ export class CockpitBoardView extends ItemView {
 
     // Header
     const header = contentEl.createDiv({ cls: "cockpit-board-header" });
-    header.createEl("h2", { text: "Cockpit Board" });
+    header.createEl("h2", { text: "Cockpit board" });
 
     const searchWrap = header.createDiv({ cls: "cockpit-search-wrap" });
     const searchInput = searchWrap.createEl("input", { type: "text", placeholder: "Search cards...", cls: "cockpit-search" });
@@ -259,7 +260,7 @@ export class CockpitBoardView extends ItemView {
       archiveBtn.addEventListener("click", () => {
         this.showArchive = !this.showArchive;
         this.showCalendar = false;
-        this.render();
+        void this.render();
       });
     }
 
@@ -272,13 +273,13 @@ export class CockpitBoardView extends ItemView {
     calBtn.addEventListener("click", () => {
       this.showCalendar = !this.showCalendar;
       this.showArchive = false;
-      this.render();
+      void this.render();
     });
 
     // Refresh button — using Obsidian setIcon (no innerHTML)
     const refreshBtn = header.createEl("button", { cls: "clickable-icon", attr: { "aria-label": "Refresh" } });
     setIcon(refreshBtn, "refresh-cw");
-    refreshBtn.addEventListener("click", () => this.render());
+    refreshBtn.addEventListener("click", () => { void this.render(); });
 
     // Focus mode toggle
     const focusBtn = header.createEl("button", {
@@ -288,7 +289,7 @@ export class CockpitBoardView extends ItemView {
     focusBtn.textContent = this.focusMode ? "\uD83D\uDC41 Focus" : "\u25CE Focus";
     focusBtn.addEventListener("click", () => {
       this.focusMode = !this.focusMode;
-      this.render();
+      void this.render();
       this.toast(this.focusMode ? "Focus mode: Today + In Progress" : "Focus mode off");
     });
 
@@ -322,7 +323,7 @@ export class CockpitBoardView extends ItemView {
         const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 30);
         this.plugin.settings.columns.push({ id, label: name, color: "#778CA3", rule: null });
         await this.plugin.saveSettings();
-        this.render();
+        void this.render();
       });
     }
 
@@ -437,9 +438,11 @@ export class CockpitBoardView extends ItemView {
   // ── Actions ──
   async handleDrop(card: CardData, targetCol: ColumnConfig, neighborCard?: CardData): Promise<void> {
     if (card.column === targetCol.id) return;
-    const updates = getDropUpdates(targetCol, card);
+    const updates = getDropUpdates(targetCol, card, this.settings);
 
-    if ((targetCol.rule === "date:future" || targetCol.rule === "date:today" || targetCol.rule === "date:tomorrow") && !card.due) {
+    // If getDropUpdates didn't set a date and the card has no date, infer from neighbor/column
+    const isDateCol = targetCol.rule === "date:future" || targetCol.rule === "date:today" || targetCol.rule === "date:tomorrow";
+    if (isDateCol && !("due" in updates) && !card.due) {
       if (neighborCard?.due) {
         updates.due = neighborCard.due;
       } else {
@@ -459,6 +462,7 @@ export class CockpitBoardView extends ItemView {
       await this.app.fileManager.processFrontMatter(card.file, (fm) => {
         if ("status" in updates) fm.status = updates.status;
         if ("due" in updates) fm.due = updates.due;
+        if ("time" in updates) fm.time = updates.time;
         if ("completed" in updates) fm.completed = updates.completed;
         if (fm.order != null) delete fm.order;
         if (updates._addLabel) {
@@ -471,6 +475,8 @@ export class CockpitBoardView extends ItemView {
       });
       if (!this._bulkOperating) {
         this.toast(`Moved to ${targetCol.label || targetCol.id}`);
+        // Re-render to reflect updated card metadata immediately
+        void this.render();
       }
     } catch (e) {
       console.error("Cockpit Board:", e);
@@ -510,7 +516,7 @@ export class CockpitBoardView extends ItemView {
       }
     } finally {
       this.pauseRefresh = false;
-      this.render();
+      void this.render();
     }
   }
 
@@ -525,7 +531,7 @@ export class CockpitBoardView extends ItemView {
       }
     } finally {
       this.pauseRefresh = false;
-      this.render();
+      void this.render();
     }
   }
 
@@ -548,29 +554,30 @@ export class CockpitBoardView extends ItemView {
       const editBtn = modal.contentEl.createEl("button", { text: "Open in editor", cls: "mod-cta cockpit-card-modal-edit" });
       editBtn.addEventListener("click", () => {
         modal.close();
-        this.app.workspace.getLeaf("tab").openFile(file);
+        void this.app.workspace.getLeaf("tab").openFile(file);
       });
       modal.open();
     } else {
-      this.app.workspace.getLeaf("split").openFile(file);
+      void this.app.workspace.getLeaf("split").openFile(file);
     }
   }
 
   openChecklistEditor(card: CardData): void {
-    new ChecklistEditorModal(this.app, card, () => this.render()).open();
+    new ChecklistEditorModal(this.app, card, () => { void this.render(); }).open();
   }
 
   promptDateTime(card: CardData): void {
     new DateTimePickerModal(
       this.app, card,
-      (file, props) => this.updateCardProperty(file as TFile, props),
+      (file, props) => this.updateCardProperty(file, props),
       () => {},
     ).open();
   }
 
   async updateCardProperty(file: unknown, props: Record<string, unknown>): Promise<void> {
     try {
-      await this.app.fileManager.processFrontMatter(file as TFile, (fm) => {
+      if (!(file instanceof TFile)) return;
+      await this.app.fileManager.processFrontMatter(file, (fm) => {
         for (const [k, v] of Object.entries(props)) fm[k] = v;
       });
     } catch { new Notice("Error updating card"); }
@@ -688,22 +695,23 @@ export class CockpitBoardView extends ItemView {
     } finally {
       this.pauseRefresh = false;
       this.clearSelection();
-      this.render();
+      void this.render();
     }
   }
 
-  private async bulkDelete(): Promise<void> {
-    if (!confirm(`Delete ${this.selectedCards.size} card(s)?`)) return;
-    this.pauseRefresh = true;
-    try {
-      for (const { card } of this.selectedCards.values()) {
-        await this.app.vault.trash(card.file, true);
+  private bulkDelete(): void {
+    new ConfirmModal(this.app, `Delete ${this.selectedCards.size} card(s)?`, async () => {
+      this.pauseRefresh = true;
+      try {
+        for (const { card } of this.selectedCards.values()) {
+          await this.app.fileManager.trashFile(card.file);
+        }
+      } finally {
+        this.pauseRefresh = false;
+        this.clearSelection();
+        void this.render();
       }
-    } finally {
-      this.pauseRefresh = false;
-      this.clearSelection();
-      this.render();
-    }
+    }).open();
   }
 
   // ── Context builders ──

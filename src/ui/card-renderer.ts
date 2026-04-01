@@ -1,7 +1,7 @@
-import { Menu, Platform } from "obsidian";
+import { Menu } from "obsidian";
+import { ConfirmModal } from "./confirm-modal";
 import type { CardData, ColumnConfig, CockpitBoardSettings, TimerData } from "../types";
-import { todayStr, getToday, getTomorrow, datePillClass, formatDueDisplay, getLabelColor } from "./dom-helpers";
-import { getDropUpdates } from "../rule-engine";
+import { getToday, getTomorrow, datePillClass, formatDueDisplay, getLabelColor } from "./dom-helpers";
 
 export interface CardRendererContext {
   settings: CockpitBoardSettings;
@@ -30,9 +30,11 @@ export interface CardRendererContext {
   toast(msg: string): void;
   render(): Promise<void>;
   app: {
-    vault: { trash(file: unknown, system: boolean): Promise<void> };
     workspace: { getLeaf(type: string): { openFile(file: unknown): Promise<void> } };
-    fileManager: { processFrontMatter(file: unknown, fn: (fm: Record<string, unknown>) => void): Promise<void> };
+    fileManager: {
+      processFrontMatter(file: unknown, fn: (fm: Record<string, unknown>) => void): Promise<void>;
+      trashFile(file: unknown): Promise<void>;
+    };
   };
 }
 
@@ -216,13 +218,13 @@ function showCardContextMenu(e: MouseEvent, card: CardData, ctx: CardRendererCon
   const menu = new Menu();
 
   menu.addItem((i) => i.setTitle("Open in new tab").setIcon("file-text")
-    .onClick(() => ctx.app.workspace.getLeaf("tab").openFile(card.file)));
+    .onClick(() => { void ctx.app.workspace.getLeaf("tab").openFile(card.file); }));
   menu.addSeparator();
 
   for (const col of ctx.columns) {
     if (col.id === card.column) continue;
     menu.addItem((i) => i.setTitle(`Move to ${col.label}`).setIcon("arrow-right")
-      .onClick(() => ctx.handleDrop(card, col)));
+      .onClick(() => { void ctx.handleDrop(card, col); }));
   }
   menu.addSeparator();
 
@@ -237,8 +239,8 @@ function showCardContextMenu(e: MouseEvent, card: CardData, ctx: CardRendererCon
   for (const label of allLabels) {
     if (card.labels.includes(label)) continue;
     menu.addItem((i) => i.setTitle(`+ ${label}`).setIcon("tag")
-      .onClick(async () => {
-        await ctx.app.fileManager.processFrontMatter(card.file, (fm) => {
+      .onClick(() => {
+        void ctx.app.fileManager.processFrontMatter(card.file, (fm) => {
           const labels = Array.isArray(fm.labels) ? fm.labels : [];
           fm.labels = [...labels as string[], label];
         });
@@ -248,8 +250,8 @@ function showCardContextMenu(e: MouseEvent, card: CardData, ctx: CardRendererCon
     menu.addSeparator();
     for (const label of card.labels) {
       menu.addItem((i) => i.setTitle(`- ${label}`).setIcon("x")
-        .onClick(async () => {
-          await ctx.app.fileManager.processFrontMatter(card.file, (fm) => {
+        .onClick(() => {
+          void ctx.app.fileManager.processFrontMatter(card.file, (fm) => {
             fm.labels = (Array.isArray(fm.labels) ? fm.labels : []).filter((l: unknown) => l !== label);
           });
         }));
@@ -259,19 +261,19 @@ function showCardContextMenu(e: MouseEvent, card: CardData, ctx: CardRendererCon
 
   if (card.due) {
     menu.addItem((i) => i.setTitle("Clear due date").setIcon("calendar-x")
-      .onClick(() => ctx.updateCardProperty(card.file, { due: "", time: "" })));
+      .onClick(() => { void ctx.updateCardProperty(card.file, { due: "", time: "" }); }));
   }
   if (card.time) {
     menu.addItem((i) => i.setTitle("Clear time").setIcon("clock")
-      .onClick(() => ctx.updateCardProperty(card.file, { time: "" })));
+      .onClick(() => { void ctx.updateCardProperty(card.file, { time: "" }); }));
   }
   menu.addItem((i) => i.setTitle("Set due tomorrow").setIcon("calendar-plus")
-    .onClick(() => ctx.updateCardProperty(card.file, { status: "scheduled", due: getTomorrow().toISOString().split("T")[0] })));
+    .onClick(() => { void ctx.updateCardProperty(card.file, { status: "scheduled", due: getTomorrow().toISOString().split("T")[0] }); }));
   menu.addItem((i) => i.setTitle("Set due next week").setIcon("calendar-range")
     .onClick(() => {
       const d = getToday();
       d.setDate(d.getDate() + (8 - d.getDay()) % 7 || 7);
-      ctx.updateCardProperty(card.file, { status: "scheduled", due: d.toISOString().split("T")[0] });
+      void ctx.updateCardProperty(card.file, { status: "scheduled", due: d.toISOString().split("T")[0] });
     }));
   menu.addItem((i) => i.setTitle("Set date & time...").setIcon("calendar-clock")
     .onClick(() => ctx.promptDateTime(card)));
@@ -283,36 +285,43 @@ function showCardContextMenu(e: MouseEvent, card: CardData, ctx: CardRendererCon
       .onClick(() => {
         ctx.activeTimers.set(card.file.path, { startTime: Date.now(), previousMinutes: card.timeSpent || 0 });
         ctx.toast("Timer started");
-        ctx.render();
+        void ctx.render();
       }));
   } else {
     menu.addItem((i) => i.setTitle("Stop timer").setIcon("square")
-      .onClick(async () => {
-        const timer = ctx.activeTimers.get(card.file.path)!;
-        const elapsed = Math.floor((Date.now() - timer.startTime) / 60000) + timer.previousMinutes;
-        ctx.activeTimers.delete(card.file.path);
-        await ctx.updateCardProperty(card.file, { time_spent: elapsed });
-        ctx.toast(`Timer stopped: ${elapsed}m`);
+      .onClick(() => {
+        void (async () => {
+          const timer = ctx.activeTimers.get(card.file.path)!;
+          const elapsed = Math.floor((Date.now() - timer.startTime) / 60000) + timer.previousMinutes;
+          ctx.activeTimers.delete(card.file.path);
+          await ctx.updateCardProperty(card.file, { time_spent: elapsed });
+          ctx.toast(`Timer stopped: ${elapsed}m`);
+        })();
       }));
   }
   if (card.timeSpent > 0 || isRunning) {
     menu.addItem((i) => i.setTitle("Reset timer").setIcon("rotate-ccw")
-      .onClick(async () => {
-        ctx.activeTimers.delete(card.file.path);
-        await ctx.updateCardProperty(card.file, { time_spent: 0 });
-        ctx.toast("Timer reset");
+      .onClick(() => {
+        void (async () => {
+          ctx.activeTimers.delete(card.file.path);
+          await ctx.updateCardProperty(card.file, { time_spent: 0 });
+          ctx.toast("Timer reset");
+        })();
       }));
   }
 
   menu.addSeparator();
-  menu.addItem((i) => i.setTitle("Duplicate card").setIcon("copy").onClick(() => ctx.duplicateCard(card)));
+  menu.addItem((i) => i.setTitle("Duplicate card").setIcon("copy")
+    .onClick(() => { void ctx.duplicateCard(card); }));
   if (card.totalChecks > 0 && card.checkedCount > 0 && card.checkedCount < card.totalChecks) {
     menu.addItem((i) => i.setTitle("Split and close").setIcon("scissors")
-      .onClick(() => ctx.splitAndCloseCard(card)));
+      .onClick(() => { void ctx.splitAndCloseCard(card); }));
   }
   menu.addItem((i) => i.setTitle("Delete card").setIcon("trash").setWarning(true)
-    .onClick(async () => {
-      if (confirm(`Delete "${card.displayTitle}"?`)) await ctx.app.vault.trash(card.file, true);
+    .onClick(() => {
+      new ConfirmModal(ctx.app as unknown as import("obsidian").App, `Delete "${card.displayTitle}"?`, () => {
+        void ctx.app.fileManager.trashFile(card.file);
+      }).open();
     }));
 
   menu.showAtMouseEvent(e);
@@ -357,7 +366,7 @@ function attachDragHandlers(el: HTMLElement, card: CardData, ctx: CardRendererCo
   if (ctx.settings.enableCustomOrder) {
     el.addEventListener("dragover", (e) => { e.preventDefault(); e.stopPropagation(); el.classList.add("cockpit-card-dropzone"); });
     el.addEventListener("dragleave", () => el.classList.remove("cockpit-card-dropzone"));
-    el.addEventListener("drop", async (e) => {
+    el.addEventListener("drop", (e) => {
       e.preventDefault();
       e.stopPropagation();
       el.classList.remove("cockpit-card-dropzone");
@@ -368,20 +377,22 @@ function attachDragHandlers(el: HTMLElement, card: CardData, ctx: CardRendererCo
         const targetColId = el.closest(".cockpit-column")?.getAttribute("data-column-id");
         const targetCol = ctx.columns.find(c => c.id === targetColId);
         if (targetCol) {
-          ctx.pauseRefresh = true;
-          ctx._bulkOperating = true;
-          try {
-            const count = ctx.selectedCards.size;
-            for (const { card: selCard } of ctx.selectedCards.values()) {
-              if (selCard.column !== targetCol.id) await ctx.handleDrop(selCard, targetCol, card);
+          void (async () => {
+            ctx.pauseRefresh = true;
+            ctx._bulkOperating = true;
+            try {
+              const count = ctx.selectedCards.size;
+              for (const { card: selCard } of ctx.selectedCards.values()) {
+                if (selCard.column !== targetCol.id) await ctx.handleDrop(selCard, targetCol, card);
+              }
+              ctx.toast(`Moved ${count} card(s) to ${targetCol.label}`);
+            } finally {
+              ctx._bulkOperating = false;
+              ctx.pauseRefresh = false;
+              ctx.clearSelection();
+              void ctx.render();
             }
-            ctx.toast(`Moved ${count} card(s) to ${targetCol.label}`);
-          } finally {
-            ctx._bulkOperating = false;
-            ctx.pauseRefresh = false;
-            ctx.clearSelection();
-            ctx.render();
-          }
+          })();
         }
         return;
       }
@@ -393,10 +404,12 @@ function attachDragHandlers(el: HTMLElement, card: CardData, ctx: CardRendererCo
       el.parentNode?.insertBefore(ctx.draggedEl!, el);
 
       if (sourceColId === targetColId) {
-        ctx.persistColumnOrder(targetColId!);
+        void ctx.persistColumnOrder(targetColId!);
       } else if (targetCol) {
-        await ctx.handleDrop(ctx.draggedCard!, targetCol, card);
-        await ctx.persistColumnOrder(targetColId!);
+        void (async () => {
+          await ctx.handleDrop(ctx.draggedCard!, targetCol, card);
+          await ctx.persistColumnOrder(targetColId!);
+        })();
       }
     });
   }

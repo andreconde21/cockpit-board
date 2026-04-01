@@ -1,5 +1,6 @@
 import { TFile, TFolder } from "obsidian";
 import type { ArchiveResult, CalendarCardData, CockpitBoardSettings } from "../types";
+import { fmStr } from "../ui/dom-helpers.js";
 
 export interface ArchiveContext {
   settings: CockpitBoardSettings;
@@ -63,7 +64,7 @@ export function renderArchiveSearch(contentEl: HTMLElement, ctx: ArchiveContext)
   let displayCount = 50;
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
-  const doSearch = async () => {
+  const doSearch = () => {
     resultsEl.empty();
     resultsEl.createEl("p", { text: "Searching...", cls: "cockpit-archive-loading" });
 
@@ -97,7 +98,7 @@ export function renderArchiveSearch(contentEl: HTMLElement, ctx: ArchiveContext)
       const link = titleCell.createEl("a", { text: result.title, cls: "cockpit-archive-link" });
       link.addEventListener("click", () => {
         const file = ctx.app.vault.getAbstractFileByPath(result.path);
-        if (file) ctx.openCard({ file: file as TFile, displayTitle: result.title });
+        if (file instanceof TFile) ctx.openCard({ file, displayTitle: result.title });
       });
       row.createEl("td", { text: result.completed || "" });
       row.createEl("td", { text: result.project || "" });
@@ -153,10 +154,10 @@ function searchArchive(fromDate: string, toDate: string, query: string, ctx: Arc
           if (!(file instanceof TFile) || file.extension !== "md") continue;
           const cache = ctx.app.metadataCache.getFileCache(file);
           const fm = cache?.frontmatter || {};
-          const title = String(fm.title || file.basename);
-          const project = String(fm.project || "");
+          const title = fmStr(fm.title) || file.basename;
+          const project = fmStr(fm.project);
           const labels = Array.isArray(fm.labels) ? fm.labels as string[] : [];
-          const completed = String(fm.completed || "");
+          const completed = fmStr(fm.completed);
           if (query) {
             const searchable = `${title} ${project} ${labels.join(" ")}`.toLowerCase();
             if (!searchable.includes(query)) continue;
@@ -174,10 +175,10 @@ function searchArchive(fromDate: string, toDate: string, query: string, ctx: Arc
       if (!(file instanceof TFile) || file.extension !== "md") continue;
       const cache = ctx.app.metadataCache.getFileCache(file);
       const fm = cache?.frontmatter || {};
-      const title = String(fm.title || file.basename);
-      const project = String(fm.project || "");
+      const title = fmStr(fm.title) || file.basename;
+      const project = fmStr(fm.project);
       const labels = Array.isArray(fm.labels) ? fm.labels as string[] : [];
-      const completed = String(fm.completed || "");
+      const completed = fmStr(fm.completed);
       if (query) {
         const searchable = `${title} ${project} ${labels.join(" ")}`.toLowerCase();
         if (!searchable.includes(query)) continue;
@@ -218,19 +219,23 @@ export function loadArchiveCardsForRange(fromStr: string, toStr: string, ctx: Ar
           const cache = ctx.app.metadataCache.getFileCache(file);
           const fm = cache?.frontmatter;
           if (!fm || !fm.due) continue;
-          const due = new Date(fm.due + "T00:00:00");
+          const dueStr = fmStr(fm.due);
+          if (!dueStr) continue;
+          const due = new Date(dueStr + "T00:00:00");
           if (due >= from && due <= to) {
+            const title = fmStr(fm.title) || file.basename;
+            const project = fmStr(fm.project);
             results.push({
               file: file,
-              title: String(fm.title || file.basename),
-              displayTitle: fm.project ? `[${fm.project}] ${fm.title || file.basename}` : String(fm.title || file.basename),
-              due: String(fm.due || ""),
-              dueEnd: String(fm.due_end || ""),
-              time: String(fm.time || ""),
-              project: String(fm.project || ""),
+              title,
+              displayTitle: project ? `[${project}] ${title}` : title,
+              due: dueStr,
+              dueEnd: fmStr(fm.due_end),
+              time: fmStr(fm.time),
+              project,
               labels: Array.isArray(fm.labels) ? (fm.labels as string[]).filter(Boolean) : [],
-              rawStatus: String(fm.status || ""),
-              completed: String(fm.completed || ""),
+              rawStatus: fmStr(fm.status),
+              completed: fmStr(fm.completed),
               column: "done",
             });
           }

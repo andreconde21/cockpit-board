@@ -79,7 +79,7 @@ export async function renderCalendarView(
       text: mode.charAt(0).toUpperCase() + mode.slice(1),
       cls: `cockpit-cal-mode-btn ${ctx.calendarMode === mode ? "active" : ""}`,
     });
-    btn.addEventListener("click", () => { ctx.calendarMode = mode; ctx.render(); });
+    btn.addEventListener("click", () => { ctx.calendarMode = mode; void ctx.render(); });
   }
 
   const prevBtn = controls.createEl("button", { text: "\u2190", cls: "cockpit-cal-nav-btn" });
@@ -104,7 +104,7 @@ export async function renderCalendarView(
   nextBtn.addEventListener("click", () => navigateCalendar(1, ctx));
 
   const todayBtn = controls.createEl("button", { text: "Today", cls: "cockpit-cal-mode-btn" });
-  todayBtn.addEventListener("click", () => { ctx.calendarDate = new Date(); ctx.render(); });
+  todayBtn.addEventListener("click", () => { ctx.calendarDate = new Date(); void ctx.render(); });
 
   const container = contentEl.createDiv();
 
@@ -112,7 +112,7 @@ export async function renderCalendarView(
   const onDayClick = (date: Date) => {
     ctx.calendarDate = date;
     ctx.calendarMode = "week";
-    ctx.render();
+    void ctx.render();
   };
 
   if (ctx.calendarMode === "week") {
@@ -132,5 +132,5 @@ function navigateCalendar(delta: number, ctx: CalendarViewContext): void {
   } else {
     ctx.calendarDate.setFullYear(ctx.calendarDate.getFullYear() + delta);
   }
-  ctx.render();
+  void ctx.render();
 }

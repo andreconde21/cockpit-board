@@ -28,17 +28,19 @@ export class DateTimePickerModal extends Modal {
     endDateInput.value = this.card.dueEnd || "";
 
     const saveBtn = this.contentEl.createEl("button", { text: "Save", cls: "mod-cta cockpit-dt-save-btn" });
-    saveBtn.addEventListener("click", async () => {
-      const updates: Record<string, unknown> = {
-        due: dateInput.value || "",
-        time: timeInput.value || "",
-        due_end: endDateInput.value || "",
-      };
-      if (updates.due) updates.status = "scheduled";
-      await this.onSave(this.card.file, updates);
-      new Notice(`Date set: ${updates.due}${updates.time ? " " + updates.time : ""}`);
-      this.close();
-      this.onDone();
+    saveBtn.addEventListener("click", () => {
+      void (async () => {
+        const updates: Record<string, unknown> = {
+          due: dateInput.value || "",
+          time: timeInput.value || "",
+          due_end: endDateInput.value || "",
+        };
+        if (updates.due) updates.status = "scheduled";
+        await this.onSave(this.card.file, updates);
+        new Notice(`Date set: ${String(updates.due)}${updates.time ? " " + String(updates.time) : ""}`);
+        this.close();
+        this.onDone();
+      })();
     });
 
     dateInput.focus();
@@ -67,15 +69,17 @@ export class BulkDateTimePickerModal extends Modal {
     const endDateInput = this.contentEl.createEl("input", { type: "date", cls: "cockpit-dt-input" });
 
     const saveBtn = this.contentEl.createEl("button", { text: "Apply to all", cls: "mod-cta cockpit-dt-save-btn" });
-    saveBtn.addEventListener("click", async () => {
-      const updates: Record<string, unknown> = {
-        due: dateInput.value || "",
-        time: timeInput.value || "",
-        due_end: endDateInput.value || "",
-      };
-      if (updates.due) updates.status = "scheduled";
-      await this.onApply(updates);
-      this.close();
+    saveBtn.addEventListener("click", () => {
+      void (async () => {
+        const updates: Record<string, unknown> = {
+          due: dateInput.value || "",
+          time: timeInput.value || "",
+          due_end: endDateInput.value || "",
+        };
+        if (updates.due) updates.status = "scheduled";
+        await this.onApply(updates);
+        this.close();
+      })();
     });
 
     dateInput.focus();

@@ -1,6 +1,11 @@
 import { DEFAULT_PALETTE } from "../constants";
 import type { CockpitBoardSettings } from "../types";
 
+/** Safely extract a string from a frontmatter value that may be an object. */
+export function fmStr(val: unknown): string {
+  return typeof val === "string" ? val : "";
+}
+
 export function todayStr(): string {
   return new Date().toISOString().split("T")[0];
 }

@@ -67,18 +67,20 @@ export class ChecklistEditorModal extends Modal {
     let saveTimer: ReturnType<typeof setTimeout> | null = null;
     const autoSave = () => {
       if (saveTimer) clearTimeout(saveTimer);
-      saveTimer = setTimeout(() => this.saveChecklists(), 500);
+      saveTimer = setTimeout(() => void this.saveChecklists(), 500);
     };
 
     // Global sort button
     const globalSortBtn = contentEl.createEl("button", { text: "\u2713 Done first", cls: "cockpit-cl-sort-btn cockpit-cl-global-sort" });
-    globalSortBtn.addEventListener("click", async () => {
-      for (const cl of this.checklists) {
-        cl.items.sort((a, b) => (b.checked ? 1 : 0) - (a.checked ? 1 : 0));
-      }
-      await this.saveChecklists();
-      this.onSave();
-      this.close();
+    globalSortBtn.addEventListener("click", () => {
+      void (async () => {
+        for (const cl of this.checklists) {
+          cl.items.sort((a, b) => (b.checked ? 1 : 0) - (a.checked ? 1 : 0));
+        }
+        await this.saveChecklists();
+        this.onSave();
+        this.close();
+      })();
     });
 
     for (const cl of this.checklists) {

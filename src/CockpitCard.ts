@@ -1,6 +1,7 @@
 import { TFile } from "obsidian";
 import type { CardData, ColumnConfig } from "./types";
 import { resolveColumn } from "./rule-engine";
+import { fmStr } from "./ui/dom-helpers.js";
 
 export class CockpitCard implements CardData {
   file: TFile;
@@ -22,15 +23,15 @@ export class CockpitCard implements CardData {
 
   constructor(file: TFile, fm: Record<string, unknown>, content: string, columns: ColumnConfig[]) {
     this.file = file;
-    this.rawStatus = (String(fm.status || "")).trim().toLowerCase();
-    this.title = String(fm.title || file.basename);
-    this.project = String(fm.project || "");
-    this.due = String(fm.due || "");
-    this.time = String(fm.time || "");
-    this.dueEnd = String(fm.due_end || "");
-    this.completed = String(fm.completed || "");
+    this.rawStatus = fmStr(fm.status).trim().toLowerCase();
+    this.title = fmStr(fm.title) || file.basename;
+    this.project = fmStr(fm.project);
+    this.due = fmStr(fm.due);
+    this.time = fmStr(fm.time);
+    this.dueEnd = fmStr(fm.due_end);
+    this.completed = fmStr(fm.completed);
     this.timeSpent = fm.time_spent ? Number(fm.time_spent) : 0;
-    this.source = String(fm.source || "");
+    this.source = fmStr(fm.source);
     this.labels = Array.isArray(fm.labels) ? (fm.labels as string[]).filter(Boolean) : [];
     const orderMatch = content.match(/^order:\s*(\d+)/m);
     this.order = orderMatch ? Number(orderMatch[1]) : (fm.order != null ? Number(fm.order) : null);

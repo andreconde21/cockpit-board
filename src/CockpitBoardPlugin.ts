@@ -18,27 +18,27 @@ export default class CockpitBoardPlugin extends Plugin {
     this.registerView(VIEW_TYPE, (leaf) => new CockpitBoardView(leaf, this));
 
     this.addCommand({
-      id: "open-cockpit-board",
-      name: "Open Cockpit Board",
-      callback: () => this.activateView(),
+      id: "open",
+      name: "Open board",
+      callback: () => { void this.activateView(); },
     });
 
     this.addCommand({
-      id: "open-archive-search",
-      name: "Open Archive Search",
+      id: "open-archive",
+      name: "Open archive search",
       callback: async () => {
         await this.activateView();
         const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
         if (leaf?.view) {
           (leaf.view as CockpitBoardView).showArchive = true;
-          (leaf.view as CockpitBoardView).render();
+          void (leaf.view as CockpitBoardView).render();
         }
       },
     });
 
     this.addCommand({
-      id: "open-calendar-view",
-      name: "Open Calendar View",
+      id: "open-calendar",
+      name: "Open calendar view",
       callback: async () => {
         await this.activateView();
         const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
@@ -46,12 +46,12 @@ export default class CockpitBoardPlugin extends Plugin {
           const view = leaf.view as CockpitBoardView;
           view.showCalendar = true;
           view.showArchive = false;
-          view.render();
+          void view.render();
         }
       },
     });
 
-    this.addRibbonIcon("layout-grid", "Cockpit Board", () => this.activateView());
+    this.addRibbonIcon("layout-grid", "Cockpit Board", () => { void this.activateView(); });
     this.addSettingTab(new CockpitBoardSettingTab(this.app, this));
 
     // Timer tick — update active timer displays every 10 seconds
@@ -68,22 +68,23 @@ export default class CockpitBoardPlugin extends Plugin {
     }, 10000));
 
     // Track deleted recurring tasks
-    this.registerEvent(this.app.vault.on("delete", async (file) => {
+    this.registerEvent(this.app.vault.on("delete", (file) => {
       if (this.settings.folder && file.path?.startsWith(this.settings.folder) && file.name?.includes("-recurring")) {
         const slug = file.name.replace("-recurring.md", "");
-        await this.dismissRecurringTask(slug);
+        void this.dismissRecurringTask(slug);
       }
     }));
 
-    this.app.workspace.onLayoutReady(async () => {
-      await this.loadDismissedRecurring();
-      this.checkRecurring();
-      this.runNotifications();
+    this.app.workspace.onLayoutReady(() => {
+      void this.loadDismissedRecurring().then(() => {
+        void this.checkRecurring();
+        this.runNotifications();
+      });
     });
 
     // Recurring check every hour
     this.registerInterval(window.setInterval(() => {
-      this.checkRecurring();
+      void this.checkRecurring();
       this.runNotifications();
     }, 3600000));
 
@@ -93,12 +94,12 @@ export default class CockpitBoardPlugin extends Plugin {
     }, 300000));
   }
 
-  async onunload(): Promise<void> {
+  onunload(): void {
     for (const [path, timer] of this.activeTimers) {
       const elapsed = Math.floor((Date.now() - timer.startTime) / 60000) + timer.previousMinutes;
       const file = this.app.vault.getAbstractFileByPath(path);
       if (file instanceof TFile) {
-        await this.app.fileManager.processFrontMatter(file, (fm) => { fm.time_spent = elapsed; });
+        void this.app.fileManager.processFrontMatter(file, (fm) => { fm.time_spent = elapsed; });
       }
     }
     this.activeTimers.clear();
@@ -107,7 +108,6 @@ export default class CockpitBoardPlugin extends Plugin {
   async checkRecurring(): Promise<void> {
     const created = await checkRecurring(this.settings, this._dismissedRecurring, this.app);
     if (created.length > 0) {
-      // Save dismissed state after successful check
       await this.saveDismissedRecurring();
     }
   }
@@ -116,7 +116,6 @@ export default class CockpitBoardPlugin extends Plugin {
     scheduleNotifications(this.settings, this._notifiedToday, this.app);
   }
 
-  // ── Recurring dismiss tracking (stored in plugin data.json) ──
   private async loadDismissedRecurring(): Promise<void> {
     try {
       const data = await this.loadData();
@@ -124,7 +123,6 @@ export default class CockpitBoardPlugin extends Plugin {
     } catch {
       this._dismissedRecurring = {};
     }
-    // Clean old dates (keep only today)
     const today = new Date().toISOString().split("T")[0];
     for (const key of Object.keys(this._dismissedRecurring)) {
       if (this._dismissedRecurring[key] !== today) delete this._dismissedRecurring[key];
@@ -142,7 +140,6 @@ export default class CockpitBoardPlugin extends Plugin {
     await this.saveDismissedRecurring();
   }
 
-  // ── Settings ──
   async loadSettings(): Promise<void> {
     const saved = await this.loadData();
     this.settings = Object.assign(
@@ -150,7 +147,6 @@ export default class CockpitBoardPlugin extends Plugin {
       JSON.parse(JSON.stringify(DEFAULT_SETTINGS)),
       saved,
     );
-    // Don't overwrite _dismissedRecurring into settings
     delete (this.settings as unknown as Record<string, unknown>)._dismissedRecurring;
 
     if (!this.settings.columns || this.settings.columns.length === 0) {

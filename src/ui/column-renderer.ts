@@ -67,10 +67,12 @@ export function createColumn(col: ColumnConfig, cards: CardData[], overdueCount:
   }
 
   // Add card button
-  addBtn.addEventListener("click", async () => {
-    const title = await ctx.promptForTitle("New task");
-    if (!title) return;
-    await ctx.createCardInColumn(title, col);
+  addBtn.addEventListener("click", () => {
+    void (async () => {
+      const title = await ctx.promptForTitle("New task");
+      if (!title) return;
+      await ctx.createCardInColumn(title, col);
+    })();
   });
 
   // Drop zone — column level (desktop only)
@@ -79,37 +81,41 @@ export function createColumn(col: ColumnConfig, cards: CardData[], overdueCount:
     el.addEventListener("dragleave", (e) => {
       if (!el.contains(e.relatedTarget as Node)) el.classList.remove("cockpit-column-dragover");
     });
-    el.addEventListener("drop", async (e) => {
+    el.addEventListener("drop", (e) => {
       e.preventDefault();
       el.classList.remove("cockpit-column-dragover");
       if (!ctx.draggedCard || !ctx.draggedEl) return;
 
       // Bulk drag
       if (ctx.selectedCards.size > 1 && ctx.selectedCards.has(ctx.draggedCard.file.path)) {
-        ctx.pauseRefresh = true;
-        ctx._bulkOperating = true;
-        try {
-          const count = ctx.selectedCards.size;
-          for (const { card: selCard } of ctx.selectedCards.values()) {
-            if (selCard.column !== col.id) await ctx.handleDrop(selCard, col);
+        void (async () => {
+          ctx.pauseRefresh = true;
+          ctx._bulkOperating = true;
+          try {
+            const count = ctx.selectedCards.size;
+            for (const { card: selCard } of ctx.selectedCards.values()) {
+              if (selCard.column !== col.id) await ctx.handleDrop(selCard, col);
+            }
+            ctx.toast(`Moved ${count} card(s) to ${col.label}`);
+          } finally {
+            ctx._bulkOperating = false;
+            ctx.pauseRefresh = false;
+            ctx.clearSelection();
+            void ctx.render();
           }
-          ctx.toast(`Moved ${count} card(s) to ${col.label}`);
-        } finally {
-          ctx._bulkOperating = false;
-          ctx.pauseRefresh = false;
-          ctx.clearSelection();
-          ctx.render();
-        }
+        })();
         return;
       }
 
       const sourceColId = ctx.draggedCard.column;
       cardsEl.appendChild(ctx.draggedEl);
       if (sourceColId === col.id) {
-        ctx.persistColumnOrder(col.id);
+        void ctx.persistColumnOrder(col.id);
       } else {
-        await ctx.handleDrop(ctx.draggedCard, col);
-        await ctx.persistColumnOrder(col.id);
+        void (async () => {
+          await ctx.handleDrop(ctx.draggedCard!, col);
+          await ctx.persistColumnOrder(col.id);
+        })();
       }
     });
   }
@@ -120,17 +126,17 @@ export function createColumn(col: ColumnConfig, cards: CardData[], overdueCount:
 function showColumnContextMenu(e: MouseEvent, col: ColumnConfig, el: HTMLElement, ctx: ColumnRendererContext): void {
   const menu = new Menu();
   menu.addItem((i) => i.setTitle("Sort by title A\u2192Z").setIcon("arrow-down-az")
-    .onClick(() => ctx.sortColumn(col.id, (a: CardData, b: CardData) => a.displayTitle.localeCompare(b.displayTitle))));
+    .onClick(() => { void ctx.sortColumn(col.id, (a: CardData, b: CardData) => a.displayTitle.localeCompare(b.displayTitle)); }));
   menu.addItem((i) => i.setTitle("Sort by title Z\u2192A").setIcon("arrow-up-az")
-    .onClick(() => ctx.sortColumn(col.id, (a: CardData, b: CardData) => b.displayTitle.localeCompare(a.displayTitle))));
+    .onClick(() => { void ctx.sortColumn(col.id, (a: CardData, b: CardData) => b.displayTitle.localeCompare(a.displayTitle)); }));
   menu.addSeparator();
   menu.addItem((i) => i.setTitle("Sort by date (earliest)").setIcon("arrow-up")
-    .onClick(() => ctx.sortColumn(col.id, (a: CardData, b: CardData) => (a.due || "9").localeCompare(b.due || "9"))));
+    .onClick(() => { void ctx.sortColumn(col.id, (a: CardData, b: CardData) => (a.due || "9").localeCompare(b.due || "9")); }));
   menu.addItem((i) => i.setTitle("Sort by date (latest)").setIcon("arrow-down")
-    .onClick(() => ctx.sortColumn(col.id, (a: CardData, b: CardData) => (b.due || "").localeCompare(a.due || ""))));
+    .onClick(() => { void ctx.sortColumn(col.id, (a: CardData, b: CardData) => (b.due || "").localeCompare(a.due || "")); }));
   menu.addSeparator();
   menu.addItem((i) => i.setTitle("Clear custom order").setIcon("rotate-ccw")
-    .onClick(() => ctx.clearColumnOrder(col.id)));
+    .onClick(() => { void ctx.clearColumnOrder(col.id); }));
   menu.addSeparator();
   menu.addItem((i) => i.setTitle("Select all cards").setIcon("check-square")
     .onClick(() => {

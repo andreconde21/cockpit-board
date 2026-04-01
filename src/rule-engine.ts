@@ -1,4 +1,4 @@
-import type { CardData, ColumnConfig } from "./types";
+import type { CardData, ColumnConfig, CockpitBoardSettings } from "./types";
 import { todayStr, getToday, getTomorrow, parseDate } from "./ui/dom-helpers";
 
 export function matchesRule(card: CardData, rule: string): boolean {
@@ -40,9 +40,11 @@ export function resolveColumn(card: CardData, columns: ColumnConfig[]): string {
   return columns[0]?.id || "backlog";
 }
 
-export function getDropUpdates(col: ColumnConfig, currentCard: CardData): Record<string, string> {
+export function getDropUpdates(col: ColumnConfig, currentCard: CardData, settings?: CockpitBoardSettings): Record<string, string> {
   const updates: Record<string, string> = {};
   const rule = col.rule || "";
+  const adjustDate = settings?.adjustDateOnMove ?? false;
+  const setToday = settings?.setTodayOnMove ?? false;
 
   if (rule.includes("status:")) {
     const status = rule.match(/status:(\S+)/)?.[1] || col.id;
@@ -50,12 +52,27 @@ export function getDropUpdates(col: ColumnConfig, currentCard: CardData): Record
     if (status === "done") updates.completed = todayStr();
   } else if (rule.includes("date:today")) {
     updates.status = "scheduled";
-    if (!currentCard.due) updates.due = todayStr();
+    // When setTodayOnMove is on, always overwrite date to today
+    if (setToday || !currentCard.due) {
+      updates.due = todayStr();
+    }
   } else if (rule.includes("date:tomorrow")) {
     updates.status = "scheduled";
-    if (!currentCard.due) updates.due = getTomorrow().toISOString().split("T")[0];
+    // When adjustDateOnMove is on, always overwrite date to tomorrow
+    if (adjustDate || !currentCard.due) {
+      updates.due = getTomorrow().toISOString().split("T")[0];
+    }
   } else if (rule.includes("date:future")) {
     updates.status = "scheduled";
+    // When adjustDateOnMove is on and card has a past/today/tomorrow date, push it forward
+    if (adjustDate && currentCard.due) {
+      const d = parseDate(currentCard.due);
+      if (d && d <= getTomorrow()) {
+        const future = new Date(getTomorrow());
+        future.setDate(future.getDate() + 1);
+        updates.due = future.toISOString().split("T")[0];
+      }
+    }
   } else if (rule.includes("no-date")) {
     updates.status = "";
     updates.due = "";

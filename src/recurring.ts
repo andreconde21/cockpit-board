@@ -114,9 +114,9 @@ function taskExistsForToday(
   const folderObj = app.vault.getAbstractFileByPath(folder) as { children?: unknown[] } | null;
   if (!folderObj) return false;
   for (const child of folderObj.children || []) {
-    const f = child as TFile;
-    if (f.name && f.name.startsWith(slug) && f.extension === "md") {
-      const cache = app.metadataCache.getFileCache(f);
+    if (!(child instanceof TFile)) continue;
+    if (child.name.startsWith(slug) && child.extension === "md") {
+      const cache = app.metadataCache.getFileCache(child);
       if (cache?.frontmatter?.due === dateStr) return true;
     }
   }

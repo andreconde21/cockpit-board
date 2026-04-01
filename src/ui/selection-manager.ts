@@ -1,6 +1,7 @@
-import { Menu } from "obsidian";
+import { Menu, App } from "obsidian";
 import type { CardData, ColumnConfig, CockpitBoardSettings } from "../types";
-import { todayStr, getToday, getTomorrow, getLabelColor } from "./dom-helpers";
+import { ConfirmModal } from "./confirm-modal";
+import { todayStr, getToday, getTomorrow } from "./dom-helpers";
 
 export interface SelectionContext {
   containerEl: HTMLElement;
@@ -17,8 +18,10 @@ export interface SelectionContext {
   render(): Promise<void>;
   promptDateTime(card: CardData): void;
   app: {
-    vault: { trash(file: unknown, system: boolean): Promise<void> };
-    fileManager: { processFrontMatter(file: unknown, fn: (fm: Record<string, unknown>) => void): Promise<void> };
+    fileManager: {
+      trashFile(file: unknown): Promise<void>;
+      processFrontMatter(file: unknown, fn: (fm: Record<string, unknown>) => void): Promise<void>;
+    };
   };
 }
 
@@ -84,7 +87,7 @@ export function updateSelectionBar(ctx: SelectionContext): void {
   for (const col of ctx.columns) {
     const btn = bar.createEl("button", { text: col.label, cls: "cockpit-selection-btn" });
     btn.style.borderColor = col.color;
-    btn.addEventListener("click", () => bulkMoveTo(col, ctx));
+    btn.addEventListener("click", () => void bulkMoveTo(col, ctx));
   }
 
   bar.createEl("span", { text: "|", cls: "cockpit-selection-sep" });
@@ -94,7 +97,7 @@ export function updateSelectionBar(ctx: SelectionContext): void {
     const menu = new Menu();
     const allLabels = collectLabels(ctx);
     for (const label of allLabels) {
-      menu.addItem((i) => i.setTitle(label).onClick(() => bulkAddLabel(label, ctx)));
+      menu.addItem((i) => i.setTitle(label).onClick(() => void bulkAddLabel(label, ctx)));
     }
     menu.showAtMouseEvent(e);
   });
@@ -105,19 +108,19 @@ export function updateSelectionBar(ctx: SelectionContext): void {
     const selectedLabels = new Set<string>();
     for (const { card } of ctx.selectedCards.values()) card.labels.forEach(l => selectedLabels.add(l));
     for (const label of selectedLabels) {
-      menu.addItem((i) => i.setTitle(label).onClick(() => bulkRemoveLabel(label, ctx)));
+      menu.addItem((i) => i.setTitle(label).onClick(() => void bulkRemoveLabel(label, ctx)));
     }
     menu.showAtMouseEvent(e);
   });
 
   const clearDatesBtn = bar.createEl("button", { text: "Clear dates", cls: "cockpit-selection-btn" });
-  clearDatesBtn.addEventListener("click", () => bulkClearDueDate(ctx));
+  clearDatesBtn.addEventListener("click", () => void bulkClearDueDate(ctx));
 
   const doneBtn = bar.createEl("button", { text: "\u2713 Done", cls: "cockpit-selection-btn cockpit-selection-done" });
-  doneBtn.addEventListener("click", () => bulkMarkDone(ctx));
+  doneBtn.addEventListener("click", () => void bulkMarkDone(ctx));
 
   const delBtn = bar.createEl("button", { text: "Delete", cls: "cockpit-selection-btn cockpit-selection-delete" });
-  delBtn.addEventListener("click", () => bulkDelete(ctx));
+  delBtn.addEventListener("click", () => void bulkDelete(ctx));
 
   const clearBtn = bar.createEl("button", { text: "\u2715", cls: "cockpit-selection-btn" });
   clearBtn.addEventListener("click", () => clearSelection(ctx));
@@ -129,36 +132,36 @@ export function showBulkMenu(e: MouseEvent, ctx: SelectionContext): void {
   menu.addSeparator();
   for (const col of ctx.columns) {
     menu.addItem((i) => i.setTitle(`Move all to ${col.label}`).setIcon("arrow-right")
-      .onClick(() => bulkMoveTo(col, ctx)));
+      .onClick(() => void bulkMoveTo(col, ctx)));
   }
   menu.addSeparator();
   const allLabels = collectLabels(ctx);
   for (const label of allLabels) {
     menu.addItem((i) => i.setTitle(`+ ${label}`).setIcon("tag")
-      .onClick(() => bulkAddLabel(label, ctx)));
+      .onClick(() => void bulkAddLabel(label, ctx)));
   }
   menu.addSeparator();
   menu.addItem((i) => i.setTitle("Set date & time...").setIcon("calendar-clock").onClick(() => bulkSetDateTime(ctx)));
   menu.addItem((i) => i.setTitle("Set due tomorrow").setIcon("calendar-plus")
-    .onClick(() => bulkSetDate(getTomorrow().toISOString().split("T")[0], ctx)));
+    .onClick(() => void bulkSetDate(getTomorrow().toISOString().split("T")[0], ctx)));
   menu.addItem((i) => i.setTitle("Set due next week").setIcon("calendar-range")
     .onClick(() => {
       const d = getToday();
       d.setDate(d.getDate() + (8 - d.getDay()) % 7 || 7);
-      bulkSetDate(d.toISOString().split("T")[0], ctx);
+      void bulkSetDate(d.toISOString().split("T")[0], ctx);
     }));
-  menu.addItem((i) => i.setTitle("Clear due dates").setIcon("calendar-x").onClick(() => bulkClearDueDate(ctx)));
+  menu.addItem((i) => i.setTitle("Clear due dates").setIcon("calendar-x").onClick(() => void bulkClearDueDate(ctx)));
   menu.addSeparator();
   const selectedLabels = new Set<string>();
   for (const { card } of ctx.selectedCards.values()) card.labels.forEach(l => selectedLabels.add(l));
   if (selectedLabels.size > 0) {
     for (const label of selectedLabels) {
-      menu.addItem((i) => i.setTitle(`- ${label}`).setIcon("x").onClick(() => bulkRemoveLabel(label, ctx)));
+      menu.addItem((i) => i.setTitle(`- ${label}`).setIcon("x").onClick(() => void bulkRemoveLabel(label, ctx)));
     }
     menu.addSeparator();
   }
-  menu.addItem((i) => i.setTitle("Mark all as Done").setIcon("check").onClick(() => bulkMarkDone(ctx)));
-  menu.addItem((i) => i.setTitle("Delete all").setIcon("trash").setWarning(true).onClick(() => bulkDelete(ctx)));
+  menu.addItem((i) => i.setTitle("Mark all as Done").setIcon("check").onClick(() => void bulkMarkDone(ctx)));
+  menu.addItem((i) => i.setTitle("Delete all").setIcon("trash").setWarning(true).onClick(() => void bulkDelete(ctx)));
   menu.showAtMouseEvent(e);
 }
 
@@ -184,7 +187,7 @@ async function bulkMoveTo(col: ColumnConfig, ctx: SelectionContext): Promise<voi
     ctx._bulkOperating = false;
     ctx.pauseRefresh = false;
     clearSelection(ctx);
-    ctx.render();
+    void ctx.render();
   }
 }
 
@@ -200,7 +203,7 @@ async function bulkAddLabel(label: string, ctx: SelectionContext): Promise<void>
   } finally {
     ctx.pauseRefresh = false;
     clearSelection(ctx);
-    ctx.render();
+    void ctx.render();
   }
 }
 
@@ -215,7 +218,7 @@ async function bulkRemoveLabel(label: string, ctx: SelectionContext): Promise<vo
   } finally {
     ctx.pauseRefresh = false;
     clearSelection(ctx);
-    ctx.render();
+    void ctx.render();
   }
 }
 
@@ -231,7 +234,7 @@ async function bulkSetDate(dateStr: string, ctx: SelectionContext): Promise<void
     ctx._bulkOperating = false;
     ctx.pauseRefresh = false;
     clearSelection(ctx);
-    ctx.render();
+    void ctx.render();
   }
 }
 
@@ -252,7 +255,7 @@ async function bulkClearDueDate(ctx: SelectionContext): Promise<void> {
   } finally {
     ctx.pauseRefresh = false;
     clearSelection(ctx);
-    ctx.render();
+    void ctx.render();
   }
 }
 
@@ -268,20 +271,21 @@ async function bulkMarkDone(ctx: SelectionContext): Promise<void> {
   } finally {
     ctx.pauseRefresh = false;
     clearSelection(ctx);
-    ctx.render();
+    void ctx.render();
   }
 }
 
-async function bulkDelete(ctx: SelectionContext): Promise<void> {
-  if (!confirm(`Delete ${ctx.selectedCards.size} card(s)?`)) return;
-  ctx.pauseRefresh = true;
-  try {
-    for (const { card } of ctx.selectedCards.values()) {
-      await ctx.app.vault.trash(card.file, true);
+function bulkDelete(ctx: SelectionContext): void {
+  new ConfirmModal(ctx.app as unknown as App, `Delete ${ctx.selectedCards.size} card(s)?`, async () => {
+    ctx.pauseRefresh = true;
+    try {
+      for (const { card } of ctx.selectedCards.values()) {
+        await ctx.app.fileManager.trashFile(card.file);
+      }
+    } finally {
+      ctx.pauseRefresh = false;
+      clearSelection(ctx);
+      void ctx.render();
     }
-  } finally {
-    ctx.pauseRefresh = false;
-    clearSelection(ctx);
-    ctx.render();
-  }
+  }).open();
 }
