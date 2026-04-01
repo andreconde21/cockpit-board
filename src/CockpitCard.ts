@@ -13,6 +13,7 @@ export class CockpitCard implements CardData {
   dueEnd: string;
   completed: string;
   timeSpent: number;
+  pomodoros: number;
   source: string;
   labels: string[];
   order: number | null;
@@ -31,6 +32,7 @@ export class CockpitCard implements CardData {
     this.dueEnd = fmStr(fm.due_end);
     this.completed = fmStr(fm.completed);
     this.timeSpent = fm.time_spent ? Number(fm.time_spent) : 0;
+    this.pomodoros = fm.pomodoros ? Number(fm.pomodoros) : 0;
     this.source = fmStr(fm.source);
     this.labels = Array.isArray(fm.labels) ? (fm.labels as string[]).filter(Boolean) : [];
     const orderMatch = content.match(/^order:\s*(\d+)/m);

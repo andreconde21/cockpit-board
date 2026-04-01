@@ -13,8 +13,6 @@ export class CockpitBoardSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
-    new Setting(containerEl).setName("Cockpit board").setHeading();
-
     // ── General Settings ──
     new Setting(containerEl)
       .setName("Tasks folder")
@@ -26,7 +24,7 @@ export class CockpitBoardSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Archive folder")
-      .setDesc("Folder with archived tasks (YYYY/MM/DD structure). Leave empty to hide archive.")
+      .setDesc("Folder with archived tasks (yyyy/mm/dd structure). Leave empty to hide archive.")
       .addText(t => t.setValue(this.plugin.settings.archiveFolder).onChange(v => {
         this.plugin.settings.archiveFolder = v;
         void this.plugin.saveSettings();
@@ -99,7 +97,7 @@ export class CockpitBoardSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Adjust date on column move")
-      .setDesc("When moving a card to Soon or Scheduled, automatically update the due date to match the column.")
+      .setDesc("When moving a card to soon or scheduled, automatically update the due date to match the column.")
       .addToggle(t => t.setValue(this.plugin.settings.adjustDateOnMove).onChange(v => {
         this.plugin.settings.adjustDateOnMove = v;
         void this.plugin.saveSettings();
@@ -107,11 +105,71 @@ export class CockpitBoardSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Set today's date on move")
-      .setDesc("When moving a card to Today, always set the due date to today (even if one is already set).")
+      .setDesc("When moving a card to today, always set the due date to today (even if one is already set).")
       .addToggle(t => t.setValue(this.plugin.settings.setTodayOnMove).onChange(v => {
         this.plugin.settings.setTodayOnMove = v;
         void this.plugin.saveSettings();
       }));
+
+    // ── Pomodoro ──
+    new Setting(containerEl).setName("Pomodoro").setHeading();
+
+    new Setting(containerEl)
+      .setName("Enable pomodoro timer")
+      .setDesc("Adds pomodoro start/stop to card menus and a countdown in the status bar.")
+      .addToggle(t => t.setValue(this.plugin.settings.pomodoroEnabled).onChange(v => {
+        this.plugin.settings.pomodoroEnabled = v;
+        void this.plugin.saveSettings();
+        this.plugin.ensureStatusBar();
+        this.display();
+      }));
+
+    if (this.plugin.settings.pomodoroEnabled) {
+      new Setting(containerEl)
+        .setName("Work duration (minutes)")
+        .addText(t => t.setValue(String(this.plugin.settings.pomodoroWork)).onChange(v => {
+          const n = parseInt(v);
+          if (!isNaN(n) && n > 0) {
+            this.plugin.settings.pomodoroWork = n;
+            void this.plugin.saveSettings();
+            this.plugin.pomodoro.updateSettings(this.plugin.settings);
+          }
+        }));
+
+      new Setting(containerEl)
+        .setName("Short break (minutes)")
+        .addText(t => t.setValue(String(this.plugin.settings.pomodoroShortBreak)).onChange(v => {
+          const n = parseInt(v);
+          if (!isNaN(n) && n > 0) {
+            this.plugin.settings.pomodoroShortBreak = n;
+            void this.plugin.saveSettings();
+            this.plugin.pomodoro.updateSettings(this.plugin.settings);
+          }
+        }));
+
+      new Setting(containerEl)
+        .setName("Long break (minutes)")
+        .addText(t => t.setValue(String(this.plugin.settings.pomodoroLongBreak)).onChange(v => {
+          const n = parseInt(v);
+          if (!isNaN(n) && n > 0) {
+            this.plugin.settings.pomodoroLongBreak = n;
+            void this.plugin.saveSettings();
+            this.plugin.pomodoro.updateSettings(this.plugin.settings);
+          }
+        }));
+
+      new Setting(containerEl)
+        .setName("Long break after (sessions)")
+        .setDesc("Number of work sessions before a long break.")
+        .addText(t => t.setValue(String(this.plugin.settings.pomodoroLongBreakInterval)).onChange(v => {
+          const n = parseInt(v);
+          if (!isNaN(n) && n > 0) {
+            this.plugin.settings.pomodoroLongBreakInterval = n;
+            void this.plugin.saveSettings();
+            this.plugin.pomodoro.updateSettings(this.plugin.settings);
+          }
+        }));
+    }
 
     // ── Columns ──
     new Setting(containerEl).setName("Columns").setHeading();
@@ -121,7 +179,7 @@ export class CockpitBoardSettingTab extends PluginSettingTab {
     const listEl = containerEl.createDiv({ cls: "cockpit-settings-columns" });
     this.renderColumnList(listEl);
 
-    new Setting(containerEl).addButton(btn => btn.setButtonText("+ Add column").setCta()
+    new Setting(containerEl).addButton(btn => btn.setButtonText("+ add column").setCta()
       .onClick(() => { void (async () => {
         this.plugin.settings.columns.push({ id: `custom-${Date.now()}`, label: "New Column", color: "#778CA3", rule: null });
         await this.plugin.saveSettings();
@@ -130,7 +188,7 @@ export class CockpitBoardSettingTab extends PluginSettingTab {
 
     new Setting(containerEl).addButton(btn => btn.setButtonText("Reset to defaults").setWarning()
       .onClick(() => { void (async () => {
-        this.plugin.settings.columns = JSON.parse(JSON.stringify(DEFAULT_COLUMNS));
+        this.plugin.settings.columns = JSON.parse(JSON.stringify(DEFAULT_COLUMNS)) as typeof DEFAULT_COLUMNS;
         await this.plugin.saveSettings();
         this.renderColumnList(listEl);
       })(); }));
@@ -143,7 +201,7 @@ export class CockpitBoardSettingTab extends PluginSettingTab {
     const labelsEl = containerEl.createDiv({ cls: "cockpit-settings-labels" });
     this.renderLabelColorList(labelsEl);
 
-    new Setting(containerEl).addButton(btn => btn.setButtonText("+ Add label color").setCta()
+    new Setting(containerEl).addButton(btn => btn.setButtonText("+ add label color").setCta()
       .onClick(() => { void (async () => {
         const name = "New Label";
         if (!this.plugin.settings.labelColors[name]) {
@@ -165,7 +223,7 @@ export class CockpitBoardSettingTab extends PluginSettingTab {
 
       new Setting(containerEl).addButton(btn => btn.setButtonText("Open recurring config").onClick(() => {
         const file = this.app.vault.getAbstractFileByPath(this.plugin.settings.recurringConfigPath);
-        if (file instanceof TFile) this.app.workspace.getLeaf("tab").openFile(file);
+        if (file instanceof TFile) void this.app.workspace.getLeaf("tab").openFile(file);
         else new Notice(`${this.plugin.settings.recurringConfigPath} not found`);
       }));
     }

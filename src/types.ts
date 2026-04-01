@@ -21,6 +21,11 @@ export interface CockpitBoardSettings {
   labelColors: Record<string, string>;
   adjustDateOnMove: boolean;
   setTodayOnMove: boolean;
+  pomodoroEnabled: boolean;
+  pomodoroWork: number;
+  pomodoroShortBreak: number;
+  pomodoroLongBreak: number;
+  pomodoroLongBreakInterval: number;
 }
 
 export interface CardData {
@@ -33,6 +38,7 @@ export interface CardData {
   dueEnd: string;
   completed: string;
   timeSpent: number;
+  pomodoros: number;
   source: string;
   labels: string[];
   order: number | null;
@@ -60,6 +66,13 @@ export interface RecurringConfig {
 export interface TimerData {
   startTime: number;
   previousMinutes: number;
+}
+
+export interface PomodoroSession {
+  cardPath: string;
+  startTime: number;
+  phase: "work" | "short-break" | "long-break";
+  sessionCount: number;
 }
 
 export interface ArchiveResult {

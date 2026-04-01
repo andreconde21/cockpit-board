@@ -25,6 +25,11 @@ export const DEFAULT_SETTINGS: CockpitBoardSettings = {
   labelColors: {},
   adjustDateOnMove: true,
   setTodayOnMove: true,
+  pomodoroEnabled: false,
+  pomodoroWork: 25,
+  pomodoroShortBreak: 5,
+  pomodoroLongBreak: 15,
+  pomodoroLongBreakInterval: 4,
 };
 
 export const DEFAULT_PALETTE = [

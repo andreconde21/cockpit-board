@@ -70,13 +70,13 @@ export function clearSelection(ctx: SelectionContext): void {
 }
 
 export function updateSelectionBar(ctx: SelectionContext): void {
-  let bar = ctx.containerEl.querySelector(".cockpit-selection-bar") as HTMLElement | null;
+  let bar = ctx.containerEl.querySelector(".cockpit-selection-bar");
   if (ctx.selectedCards.size === 0) {
     if (bar) bar.remove();
     return;
   }
   if (!bar) {
-    bar = document.createElement("div");
+    bar = createDiv();
     bar.className = "cockpit-selection-bar";
     ctx.containerEl.appendChild(bar);
   }
@@ -92,7 +92,7 @@ export function updateSelectionBar(ctx: SelectionContext): void {
 
   bar.createEl("span", { text: "|", cls: "cockpit-selection-sep" });
 
-  const addLabelBtn = bar.createEl("button", { text: "+ Label", cls: "cockpit-selection-btn" });
+  const addLabelBtn = bar.createEl("button", { text: "+ label", cls: "cockpit-selection-btn" });
   addLabelBtn.addEventListener("click", (e) => {
     const menu = new Menu();
     const allLabels = collectLabels(ctx);
@@ -102,7 +102,7 @@ export function updateSelectionBar(ctx: SelectionContext): void {
     menu.showAtMouseEvent(e);
   });
 
-  const rmLabelBtn = bar.createEl("button", { text: "- Label", cls: "cockpit-selection-btn" });
+  const rmLabelBtn = bar.createEl("button", { text: "- label", cls: "cockpit-selection-btn" });
   rmLabelBtn.addEventListener("click", (e) => {
     const menu = new Menu();
     const selectedLabels = new Set<string>();
@@ -116,7 +116,7 @@ export function updateSelectionBar(ctx: SelectionContext): void {
   const clearDatesBtn = bar.createEl("button", { text: "Clear dates", cls: "cockpit-selection-btn" });
   clearDatesBtn.addEventListener("click", () => void bulkClearDueDate(ctx));
 
-  const doneBtn = bar.createEl("button", { text: "\u2713 Done", cls: "cockpit-selection-btn cockpit-selection-done" });
+  const doneBtn = bar.createEl("button", { text: "\u2713 done", cls: "cockpit-selection-btn cockpit-selection-done" });
   doneBtn.addEventListener("click", () => void bulkMarkDone(ctx));
 
   const delBtn = bar.createEl("button", { text: "Delete", cls: "cockpit-selection-btn cockpit-selection-delete" });
@@ -160,7 +160,7 @@ export function showBulkMenu(e: MouseEvent, ctx: SelectionContext): void {
     }
     menu.addSeparator();
   }
-  menu.addItem((i) => i.setTitle("Mark all as Done").setIcon("check").onClick(() => void bulkMarkDone(ctx)));
+  menu.addItem((i) => i.setTitle("Mark all as done").setIcon("check").onClick(() => void bulkMarkDone(ctx)));
   menu.addItem((i) => i.setTitle("Delete all").setIcon("trash").setWarning(true).onClick(() => void bulkDelete(ctx)));
   menu.showAtMouseEvent(e);
 }
@@ -241,8 +241,8 @@ async function bulkSetDate(dateStr: string, ctx: SelectionContext): Promise<void
 function bulkSetDateTime(ctx: SelectionContext): void {
   // Delegated to the view's promptDateTime for bulk
   // The view will handle this via its own modal
-  const firstCard = ctx.selectedCards.values().next().value;
-  if (firstCard) ctx.promptDateTime(firstCard.card);
+  const iter = ctx.selectedCards.values().next() as IteratorResult<{ card: CardData; el: HTMLElement }>;
+  if (!iter.done && iter.value) ctx.promptDateTime(iter.value.card);
 }
 
 async function bulkClearDueDate(ctx: SelectionContext): Promise<void> {
@@ -276,16 +276,18 @@ async function bulkMarkDone(ctx: SelectionContext): Promise<void> {
 }
 
 function bulkDelete(ctx: SelectionContext): void {
-  new ConfirmModal(ctx.app as unknown as App, `Delete ${ctx.selectedCards.size} card(s)?`, async () => {
-    ctx.pauseRefresh = true;
-    try {
-      for (const { card } of ctx.selectedCards.values()) {
-        await ctx.app.fileManager.trashFile(card.file);
+  new ConfirmModal(ctx.app as unknown as App, `Delete ${ctx.selectedCards.size} card(s)?`, () => {
+    void (async () => {
+      ctx.pauseRefresh = true;
+      try {
+        for (const { card } of ctx.selectedCards.values()) {
+          await ctx.app.fileManager.trashFile(card.file);
+        }
+      } finally {
+        ctx.pauseRefresh = false;
+        clearSelection(ctx);
+        void ctx.render();
       }
-    } finally {
-      ctx.pauseRefresh = false;
-      clearSelection(ctx);
-      void ctx.render();
-    }
+    })();
   }).open();
 }

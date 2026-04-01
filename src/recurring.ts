@@ -1,6 +1,5 @@
 import { TFile, Notice } from "obsidian";
 import type { CockpitBoardSettings, RecurringConfig } from "./types";
-import { todayStr } from "./ui/dom-helpers";
 
 interface TodayInfo {
   year: number;
@@ -46,7 +45,7 @@ export async function checkRecurring(
     if (!configFile || !(configFile instanceof TFile)) return [];
 
     const raw = await app.vault.read(configFile);
-    const config: RecurringConfig = JSON.parse(raw);
+    const config = JSON.parse(raw) as RecurringConfig;
     const tasks = config.tasks || [];
 
     const now = new Date();
@@ -96,7 +95,7 @@ export async function checkRecurring(
       new Notice(`\uD83D\uDD04 Created ${created.length} recurring task(s): ${created.join(", ")}`, 5000);
     }
     return created;
-  } catch (e) {
+  } catch (e: unknown) {
     console.error("Cockpit Board: recurring check failed", e);
     return [];
   }

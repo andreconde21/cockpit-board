@@ -71,7 +71,7 @@ export class ChecklistEditorModal extends Modal {
     };
 
     // Global sort button
-    const globalSortBtn = contentEl.createEl("button", { text: "\u2713 Done first", cls: "cockpit-cl-sort-btn cockpit-cl-global-sort" });
+    const globalSortBtn = contentEl.createEl("button", { text: "\u2713 done first", cls: "cockpit-cl-sort-btn cockpit-cl-global-sort" });
     globalSortBtn.addEventListener("click", () => {
       void (async () => {
         for (const cl of this.checklists) {
@@ -91,7 +91,7 @@ export class ChecklistEditorModal extends Modal {
 
       const addRow = section.createDiv({ cls: "cockpit-cl-add-row" });
       const addInput = addRow.createEl("input", { type: "text", placeholder: `New item in ${cl.name}...`, cls: "cockpit-cl-text" });
-      const addBtn = addRow.createEl("button", { text: "+ Add", cls: "cockpit-cl-add-btn" });
+      const addBtn = addRow.createEl("button", { text: "+ add", cls: "cockpit-cl-add-btn" });
       const addItem = () => {
         if (!addInput.value.trim()) return;
         cl.items.push({ checked: false, text: addInput.value.trim() });
@@ -106,7 +106,7 @@ export class ChecklistEditorModal extends Modal {
     // Add new checklist section
     const newClRow = contentEl.createDiv({ cls: "cockpit-cl-add-row" });
     const newClInput = newClRow.createEl("input", { type: "text", placeholder: "New checklist name...", cls: "cockpit-cl-text" });
-    const newClBtn = newClRow.createEl("button", { text: "+ Add checklist", cls: "cockpit-cl-add-btn" });
+    const newClBtn = newClRow.createEl("button", { text: "+ add checklist", cls: "cockpit-cl-add-btn" });
     newClBtn.addEventListener("click", () => {
       if (!newClInput.value.trim()) return;
       this.checklists.push({ name: newClInput.value.trim(), items: [] });

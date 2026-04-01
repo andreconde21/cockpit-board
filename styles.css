@@ -683,6 +683,17 @@
   50% { opacity: 0.6; }
 }
 
+/* ── Pomodoro ─────────────────────────────────────────────── */
+
+.cockpit-pomodoro-display {
+  color: #EB5A46 !important;
+}
+
+.cockpit-pomodoro-count {
+  color: #EB5A46;
+  font-weight: 600;
+}
+
 /* ── Recurring indicator ──────────────────────────────────── */
 
 .cockpit-recurring {

@@ -29,6 +29,10 @@ export interface CardRendererContext {
   splitAndCloseCard(card: CardData): Promise<void>;
   toast(msg: string): void;
   render(): Promise<void>;
+  startPomodoro(cardPath: string): void;
+  stopPomodoro(): void;
+  isPomodoroActive(cardPath: string): boolean;
+  getPomodoroTimeRemaining(): string;
   app: {
     workspace: { getLeaf(type: string): { openFile(file: unknown): Promise<void> } };
     fileManager: {
@@ -39,7 +43,7 @@ export interface CardRendererContext {
 }
 
 export function createCard(card: CardData, ctx: CardRendererContext): HTMLElement {
-  const el = document.createElement("div");
+  const el = createDiv();
   el.className = "cockpit-card";
   el.draggable = !ctx.isMobile;
   el.dataset.path = card.file.path;
@@ -55,10 +59,10 @@ export function createCard(card: CardData, ctx: CardRendererContext): HTMLElemen
   const isInToday = card.column === "today" || ctx.columns.find(c => c.id === card.column)?.rule === "date:today";
 
   if (card.labels.length > 0) {
-    const labelsEl = document.createElement("div");
+    const labelsEl = createDiv();
     labelsEl.className = "cockpit-card-labels";
     for (const label of card.labels) {
-      const bar = document.createElement("span");
+      const bar = createSpan();
       bar.className = "cockpit-label";
       bar.style.backgroundColor = getLabelColor(label, ctx.settings);
       bar.title = label;
@@ -67,7 +71,7 @@ export function createCard(card: CardData, ctx: CardRendererContext): HTMLElemen
     el.appendChild(labelsEl);
   }
 
-  const titleEl = document.createElement("div");
+  const titleEl = createDiv();
   titleEl.className = "cockpit-card-title";
   if (ctx.settings.privacyMode) {
     titleEl.classList.add("cockpit-privacy-blur");
@@ -126,7 +130,7 @@ export function createCard(card: CardData, ctx: CardRendererContext): HTMLElemen
 }
 
 function buildCardMeta(card: CardData, ctx: CardRendererContext, isInToday: boolean): HTMLElement | null {
-  const metaEl = document.createElement("div");
+  const metaEl = createDiv();
   metaEl.className = "cockpit-card-meta";
   let hasContent = false;
 
@@ -134,7 +138,7 @@ function buildCardMeta(card: CardData, ctx: CardRendererContext, isInToday: bool
   const pillClass = datePillClass(card.due);
   if (isInToday) {
     if (card.time) {
-      const span = document.createElement("span");
+      const span = createSpan();
       span.className = "cockpit-date cockpit-date-soon cockpit-date-clickable";
       span.textContent = `\u25F7 ${card.time}`;
       span.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); ctx.promptDateTime(card); });
@@ -144,7 +148,7 @@ function buildCardMeta(card: CardData, ctx: CardRendererContext, isInToday: bool
   } else {
     const dateDisplay = formatDueDisplay(card.due, card.time, card.dueEnd);
     if (dateDisplay && pillClass) {
-      const span = document.createElement("span");
+      const span = createSpan();
       span.className = `cockpit-date ${pillClass} cockpit-date-clickable`;
       span.textContent = `\u25F7 ${dateDisplay}`;
       span.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); ctx.promptDateTime(card); });
@@ -155,7 +159,7 @@ function buildCardMeta(card: CardData, ctx: CardRendererContext, isInToday: bool
 
   // Description indicator
   if (card.hasDesc) {
-    const descSpan = document.createElement("span");
+    const descSpan = createSpan();
     descSpan.className = "cockpit-meta-icon";
     descSpan.textContent = "\u2261";
     metaEl.appendChild(descSpan);
@@ -164,7 +168,7 @@ function buildCardMeta(card: CardData, ctx: CardRendererContext, isInToday: bool
 
   // Checklist count
   if (card.totalChecks > 0) {
-    const clSpan = document.createElement("span");
+    const clSpan = createSpan();
     clSpan.className = "cockpit-meta-icon";
     clSpan.textContent = `\u2611 ${card.checkedCount}/${card.totalChecks}`;
     if (ctx.settings.checklistEditor) {
@@ -186,7 +190,7 @@ function buildCardMeta(card: CardData, ctx: CardRendererContext, isInToday: bool
     const elapsed = Math.floor((Date.now() - timer.startTime) / 60000) + timer.previousMinutes;
     const h = Math.floor(elapsed / 60);
     const m = elapsed % 60;
-    const timerSpan = document.createElement("span");
+    const timerSpan = createSpan();
     timerSpan.className = "cockpit-timer-display cockpit-timer-active";
     timerSpan.textContent = h > 0 ? `\u25B6 ${h}h${m}m` : `\u25B6 ${m}m`;
     metaEl.appendChild(timerSpan);
@@ -194,16 +198,35 @@ function buildCardMeta(card: CardData, ctx: CardRendererContext, isInToday: bool
   } else if (card.timeSpent > 0) {
     const h = Math.floor(card.timeSpent / 60);
     const m = card.timeSpent % 60;
-    const timerSpan = document.createElement("span");
+    const timerSpan = createSpan();
     timerSpan.className = "cockpit-timer-display";
     timerSpan.textContent = `\u23F1 ${h > 0 ? `${h}h${m}m` : `${m}m`}`;
     metaEl.appendChild(timerSpan);
     hasContent = true;
   }
 
+  // Pomodoro display
+  if (ctx.settings.pomodoroEnabled) {
+    const isPomActive = ctx.isPomodoroActive(card.file.path);
+    if (isPomActive) {
+      const pomSpan = createSpan();
+      pomSpan.className = "cockpit-timer-display cockpit-timer-active cockpit-pomodoro-display";
+      pomSpan.textContent = `\uD83C\uDF45 ${ctx.getPomodoroTimeRemaining()}`;
+      metaEl.appendChild(pomSpan);
+      hasContent = true;
+    } else if (card.pomodoros > 0) {
+      const pomSpan = createSpan();
+      pomSpan.className = "cockpit-meta-icon cockpit-pomodoro-count";
+      pomSpan.textContent = `\uD83C\uDF45 ${card.pomodoros}`;
+      pomSpan.title = `${card.pomodoros} pomodoro(s) completed`;
+      metaEl.appendChild(pomSpan);
+      hasContent = true;
+    }
+  }
+
   // Recurring indicator
   if (card.source === "recurring") {
-    const recurSpan = document.createElement("span");
+    const recurSpan = createSpan();
     recurSpan.className = "cockpit-meta-icon cockpit-recurring";
     recurSpan.title = "Recurring task";
     recurSpan.textContent = "\uD83D\uDD04";
@@ -310,6 +333,29 @@ function showCardContextMenu(e: MouseEvent, card: CardData, ctx: CardRendererCon
       }));
   }
 
+  // Pomodoro menu items
+  if (ctx.settings.pomodoroEnabled) {
+    menu.addSeparator();
+    const isPomActive = ctx.isPomodoroActive(card.file.path);
+    if (!isPomActive) {
+      menu.addItem((i) => i.setTitle("Start pomodoro").setIcon("timer")
+        .onClick(() => {
+          ctx.startPomodoro(card.file.path);
+          void ctx.render();
+        }));
+    } else {
+      menu.addItem((i) => i.setTitle("Stop pomodoro").setIcon("square")
+        .onClick(() => {
+          ctx.stopPomodoro();
+          void ctx.render();
+        }));
+    }
+    if (card.pomodoros > 0) {
+      menu.addItem((i) => i.setTitle("Reset pomodoro count").setIcon("rotate-ccw")
+        .onClick(() => { void ctx.updateCardProperty(card.file, { pomodoros: 0 }); }));
+    }
+  }
+
   menu.addSeparator();
   menu.addItem((i) => i.setTitle("Duplicate card").setIcon("copy")
     .onClick(() => { void ctx.duplicateCard(card); }));
@@ -401,7 +447,7 @@ function attachDragHandlers(el: HTMLElement, card: CardData, ctx: CardRendererCo
       const sourceColId = ctx.draggedCard?.column;
       const targetCol = ctx.columns.find(c => c.id === targetColId);
 
-      el.parentNode?.insertBefore(ctx.draggedEl!, el);
+      el.parentNode?.insertBefore(ctx.draggedEl, el);
 
       if (sourceColId === targetColId) {
         void ctx.persistColumnOrder(targetColId!);

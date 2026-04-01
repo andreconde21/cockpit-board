@@ -10,7 +10,7 @@ function showYearTooltip(
   date: Date,
 ): void {
   hideYearTooltip();
-  const tip = document.createElement("div");
+  const tip = createDiv();
   tip.className = "cockpit-cal-year-tooltip";
   const title = tip.createDiv({ cls: "cockpit-cal-year-tooltip-title" });
   title.textContent = `${date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} \u2014 ${tasks.length} task(s)`;

@@ -4,7 +4,7 @@ import { parseDate } from "./dom-helpers";
 import { createCard } from "./card-renderer";
 
 export function createColumn(col: ColumnConfig, cards: CardData[], overdueCount: number, ctx: ColumnRendererContext): HTMLElement {
-  const el = document.createElement("div");
+  const el = createDiv();
   el.className = "cockpit-column";
   el.dataset.columnId = col.id;
   el.style.setProperty("--column-color", col.color);
@@ -46,7 +46,7 @@ export function createColumn(col: ColumnConfig, cards: CardData[], overdueCount:
             currentWeek = weekKey;
             const sun = new Date(mon);
             sun.setDate(sun.getDate() + 6);
-            const sep = document.createElement("div");
+            const sep = createDiv();
             sep.className = "cockpit-week-separator";
             sep.textContent = `${mon.toLocaleDateString("en-US", { month: "short", day: "numeric" })} \u2013 ${sun.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
             cardsEl.appendChild(sep);
@@ -115,6 +115,7 @@ export function createColumn(col: ColumnConfig, cards: CardData[], overdueCount:
         void (async () => {
           await ctx.handleDrop(ctx.draggedCard!, col);
           await ctx.persistColumnOrder(col.id);
+          void ctx.render();
         })();
       }
     });
@@ -125,9 +126,9 @@ export function createColumn(col: ColumnConfig, cards: CardData[], overdueCount:
 
 function showColumnContextMenu(e: MouseEvent, col: ColumnConfig, el: HTMLElement, ctx: ColumnRendererContext): void {
   const menu = new Menu();
-  menu.addItem((i) => i.setTitle("Sort by title A\u2192Z").setIcon("arrow-down-az")
+  menu.addItem((i) => i.setTitle("Sort by title a\u2192z").setIcon("arrow-down-az")
     .onClick(() => { void ctx.sortColumn(col.id, (a: CardData, b: CardData) => a.displayTitle.localeCompare(b.displayTitle)); }));
-  menu.addItem((i) => i.setTitle("Sort by title Z\u2192A").setIcon("arrow-up-az")
+  menu.addItem((i) => i.setTitle("Sort by title z\u2192a").setIcon("arrow-up-az")
     .onClick(() => { void ctx.sortColumn(col.id, (a: CardData, b: CardData) => b.displayTitle.localeCompare(a.displayTitle)); }));
   menu.addSeparator();
   menu.addItem((i) => i.setTitle("Sort by date (earliest)").setIcon("arrow-up")

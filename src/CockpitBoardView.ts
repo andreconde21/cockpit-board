@@ -3,7 +3,7 @@ import {
   MarkdownRenderer, Notice, Platform, setIcon,
 } from "obsidian";
 import { ConfirmModal } from "./ui/confirm-modal";
-import type { CardData, ColumnConfig, CalendarCardData, CockpitBoardSettings, TimerData } from "./types";
+import type { CardData, ColumnConfig, CalendarCardData, CockpitBoardSettings } from "./types";
 import { VIEW_TYPE } from "./constants";
 import { CockpitCard } from "./CockpitCard";
 import { getDropUpdates } from "./rule-engine";
@@ -201,9 +201,9 @@ export class CockpitBoardView extends ItemView {
     // First-run: show setup prompt if folder not configured
     if (!this.settings.folder) {
       const welcome = contentEl.createDiv({ cls: "cockpit-welcome" });
-      welcome.createEl("h2", { text: "Welcome to Cockpit board!" });
-      welcome.createEl("p", { text: "Set your tasks folder in Settings to get started." });
-      welcome.createEl("p", { text: "Go to Settings \u2192 Cockpit Board \u2192 Tasks folder" });
+      welcome.createEl("h2", { text: "Welcome to cockpit board!" });
+      welcome.createEl("p", { text: "Set your tasks folder in settings to get started." });
+      welcome.createEl("p", { text: "Go to settings \u2192 cockpit board \u2192 tasks folder" });
       return;
     }
 
@@ -316,7 +316,7 @@ export class CockpitBoardView extends ItemView {
         board.appendChild(createColumn(col, groups.get(col.id) || [], overdueCount, ctx));
       }
       const addColBtn = board.createDiv({ cls: "cockpit-add-column" });
-      addColBtn.textContent = "+ Add list";
+      addColBtn.textContent = "+ add list";
       addColBtn.addEventListener("click", async () => {
         const name = await this.promptForTitle("New list name");
         if (!name) return;
@@ -328,7 +328,7 @@ export class CockpitBoardView extends ItemView {
     }
 
     setTimeout(() => {
-      const board = contentEl.querySelector(".cockpit-board") as HTMLElement | null;
+      const board = contentEl.querySelector(".cockpit-board");
       if (board) board.scrollLeft = boardScrollLeft;
       contentEl.querySelectorAll(".cockpit-column-cards").forEach(col => {
         const colId = (col.closest(".cockpit-column") as HTMLElement)?.dataset?.columnId;
@@ -418,7 +418,7 @@ export class CockpitBoardView extends ItemView {
   }
 
   applyFilters(contentEl: HTMLElement): void {
-    const searchInput = contentEl.querySelector(".cockpit-search") as HTMLInputElement | null;
+    const searchInput = contentEl.querySelector<HTMLInputElement>(".cockpit-search");
     const q = searchInput ? searchInput.value.toLowerCase() : "";
     Array.from(contentEl.querySelectorAll(".cockpit-card")).forEach(c => {
       const el = c as HTMLElement;
@@ -459,26 +459,25 @@ export class CockpitBoardView extends ItemView {
     }
 
     try {
-      await this.app.fileManager.processFrontMatter(card.file, (fm) => {
+      await this.app.fileManager.processFrontMatter(card.file, (fm: Record<string, unknown>) => {
         if ("status" in updates) fm.status = updates.status;
         if ("due" in updates) fm.due = updates.due;
         if ("time" in updates) fm.time = updates.time;
         if ("completed" in updates) fm.completed = updates.completed;
-        if (fm.order != null) delete fm.order;
+        // Set order 0 so the card lands at the top of the target column
+        fm.order = 0;
         if (updates._addLabel) {
-          const labels = Array.isArray(fm.labels) ? fm.labels : [];
-          if (!(labels as string[]).includes(updates._addLabel)) fm.labels = [...labels as string[], updates._addLabel];
+          const labels = Array.isArray(fm.labels) ? (fm.labels as string[]) : [];
+          if (!labels.includes(updates._addLabel)) fm.labels = [...labels, updates._addLabel];
         }
         if (updates._removeLabel) {
-          fm.labels = (Array.isArray(fm.labels) ? fm.labels : []).filter((l: unknown) => l !== updates._removeLabel);
+          fm.labels = (Array.isArray(fm.labels) ? (fm.labels as string[]) : []).filter((l: string) => l !== updates._removeLabel);
         }
       });
       if (!this._bulkOperating) {
         this.toast(`Moved to ${targetCol.label || targetCol.id}`);
-        // Re-render to reflect updated card metadata immediately
-        void this.render();
       }
-    } catch (e) {
+    } catch (e: unknown) {
       console.error("Cockpit Board:", e);
       new Notice("Error moving card");
     }
@@ -495,7 +494,7 @@ export class CockpitBoardView extends ItemView {
         const path = (cardEl as HTMLElement).dataset.path;
         const file = this.app.vault.getAbstractFileByPath(path || "");
         if (file instanceof TFile) {
-          await this.app.fileManager.processFrontMatter(file, (fm) => { fm.order = order; });
+          await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => { fm.order = order; });
           order++;
         }
       }
@@ -511,7 +510,7 @@ export class CockpitBoardView extends ItemView {
       cards.sort(sortFn);
       let order = 1;
       for (const card of cards) {
-        await this.app.fileManager.processFrontMatter(card.file, (fm) => { fm.order = order; });
+        await this.app.fileManager.processFrontMatter(card.file, (fm: Record<string, unknown>) => { fm.order = order; });
         order++;
       }
     } finally {
@@ -526,7 +525,7 @@ export class CockpitBoardView extends ItemView {
       const cards = (await this.loadCards()).filter(c => c.column === colId);
       for (const card of cards) {
         if (card.order != null) {
-          await this.app.fileManager.processFrontMatter(card.file, (fm) => { delete fm.order; });
+          await this.app.fileManager.processFrontMatter(card.file, (fm: Record<string, unknown>) => { delete fm.order; });
         }
       }
     } finally {
@@ -542,7 +541,7 @@ export class CockpitBoardView extends ItemView {
       const leaf = this.app.workspace.getRightLeaf(false);
       if (leaf) {
         await leaf.openFile(file);
-        this.app.workspace.revealLeaf(leaf);
+        void this.app.workspace.revealLeaf(leaf);
       }
     } else if (mode === "modal") {
       const modal = new Modal(this.app);
@@ -577,7 +576,7 @@ export class CockpitBoardView extends ItemView {
   async updateCardProperty(file: unknown, props: Record<string, unknown>): Promise<void> {
     try {
       if (!(file instanceof TFile)) return;
-      await this.app.fileManager.processFrontMatter(file, (fm) => {
+      await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
         for (const [k, v] of Object.entries(props)) fm[k] = v;
       });
     } catch { new Notice("Error updating card"); }
@@ -631,7 +630,7 @@ export class CockpitBoardView extends ItemView {
         }
       }
 
-      await this.app.fileManager.processFrontMatter(card.file, (fm) => {
+      await this.app.fileManager.processFrontMatter(card.file, (fm: Record<string, unknown>) => {
         fm.status = "done";
         fm.completed = todayStr();
         fm.order = 0;
@@ -648,7 +647,7 @@ export class CockpitBoardView extends ItemView {
       while (this.app.vault.getAbstractFileByPath(path)) { path = base + `-cont-${n}.md`; n++; }
       await this.app.vault.create(path, newContent);
       this.toast("Split: original \u2192 Done, new card with remaining items");
-    } catch (e) {
+    } catch (e: unknown) {
       console.error("Cockpit Board:", e);
       new Notice("Error splitting card");
     }
@@ -687,7 +686,7 @@ export class CockpitBoardView extends ItemView {
     this.pauseRefresh = true;
     try {
       for (const { card } of this.selectedCards.values()) {
-        await this.app.fileManager.processFrontMatter(card.file, (fm) => {
+        await this.app.fileManager.processFrontMatter(card.file, (fm: Record<string, unknown>) => {
           fm.status = "done";
           fm.completed = todayStr();
         });
@@ -700,17 +699,19 @@ export class CockpitBoardView extends ItemView {
   }
 
   private bulkDelete(): void {
-    new ConfirmModal(this.app, `Delete ${this.selectedCards.size} card(s)?`, async () => {
-      this.pauseRefresh = true;
-      try {
-        for (const { card } of this.selectedCards.values()) {
-          await this.app.fileManager.trashFile(card.file);
+    new ConfirmModal(this.app, `Delete ${this.selectedCards.size} card(s)?`, () => {
+      void (async () => {
+        this.pauseRefresh = true;
+        try {
+          for (const { card } of this.selectedCards.values()) {
+            await this.app.fileManager.trashFile(card.file);
+          }
+        } finally {
+          this.pauseRefresh = false;
+          this.clearSelection();
+          void this.render();
         }
-      } finally {
-        this.pauseRefresh = false;
-        this.clearSelection();
-        void this.render();
-      }
+      })();
     }).open();
   }
 
@@ -742,6 +743,10 @@ export class CockpitBoardView extends ItemView {
       splitAndCloseCard: (card: CardData) => this.splitAndCloseCard(card),
       toast: (msg: string) => this.toast(msg),
       render: () => this.render(),
+      startPomodoro: (cardPath: string) => this.plugin.startPomodoro(cardPath),
+      stopPomodoro: () => this.plugin.stopPomodoro(),
+      isPomodoroActive: (cardPath: string) => this.plugin.pomodoro.isActiveFor(cardPath),
+      getPomodoroTimeRemaining: () => this.plugin.pomodoro.formatTimeRemaining(),
       app: this.app as CardRendererContext["app"],
       promptForTitle: (heading: string) => this.promptForTitle(heading),
       createCardInColumn: (title: string, col: ColumnConfig) => this.createCardInColumn(title, col),

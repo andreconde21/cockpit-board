@@ -20,7 +20,7 @@ export async function renderCalendarView(
   allCards: CardData[],
   ctx: CalendarViewContext,
 ): Promise<void> {
-  const searchInput = contentEl.querySelector(".cockpit-search") as HTMLInputElement | null;
+  const searchInput = contentEl.querySelector<HTMLInputElement>(".cockpit-search");
   const q = searchInput ? searchInput.value.toLowerCase() : "";
 
   const cards = allCards.filter(c => {
