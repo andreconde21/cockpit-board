@@ -1,0 +1,1419 @@
+/* ═══════════════════════════════════════════════════════════
+   Cockpit Board — Trello-style Kanban
+   ═══════════════════════════════════════════════════════════ */
+
+.cockpit-board-container {
+  height: 100%;
+  overflow: hidden;
+}
+
+.cockpit-board-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 0.5rem;
+}
+
+.cockpit-board-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.25rem 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.cockpit-board-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+/* ── Search + filter ───────────────────────────────────────── */
+
+.cockpit-search-wrap {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+  max-width: 400px;
+}
+
+.cockpit-search {
+  flex: 1;
+  padding: 5px 12px;
+  font-size: 0.85rem;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  outline: none;
+}
+
+.cockpit-search:focus {
+  border-color: var(--color-accent);
+}
+
+.cockpit-filter-dropdown-btn {
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.1s;
+}
+
+.cockpit-filter-dropdown-btn:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.cockpit-filter-has-active {
+  background: var(--color-accent) !important;
+  color: #fff !important;
+  border-color: var(--color-accent) !important;
+}
+
+/* ── Week separators ──────────────────────────────────────── */
+
+.cockpit-week-separator {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  padding: 6px 4px 2px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  margin-top: 4px;
+}
+
+/* ── Board layout ─────────────────────────────────────────── */
+
+.cockpit-board {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  flex: 1;
+  padding-bottom: 0.5rem;
+}
+
+/* ── Columns ──────────────────────────────────────────────── */
+
+.cockpit-column {
+  min-width: 260px;
+  max-width: 300px;
+  flex: 0 0 260px;
+  background: var(--background-secondary);
+  border-radius: 8px;
+  border-top: 3px solid var(--column-color, var(--color-accent));
+  display: flex;
+  flex-direction: column;
+  max-height: 100%;
+}
+
+.cockpit-column-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+}
+
+.cockpit-column-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+
+.cockpit-column-count {
+  font-size: 0.7rem;
+  background: var(--background-modifier-border);
+  color: var(--text-muted);
+  padding: 1px 8px;
+  border-radius: 10px;
+}
+
+.cockpit-column-cards {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 0.5rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.cockpit-column-dragover {
+  background: var(--background-modifier-hover) !important;
+  border-color: var(--color-accent) !important;
+}
+
+/* ── Add card button ──────────────────────────────────────── */
+
+.cockpit-column-add {
+  padding: 0.5rem 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  border-radius: 0 0 8px 8px;
+  transition: background 0.1s, color 0.1s;
+}
+
+.cockpit-column-add:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+/* ── Cards ─────────────────────────────────────────────────── */
+
+.cockpit-card {
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  padding: 0.5rem 0.65rem;
+  cursor: pointer;
+  transition: background 0.1s, transform 0.1s;
+}
+
+.cockpit-card:hover {
+  background: var(--background-modifier-hover);
+}
+
+.cockpit-card:active {
+  transform: scale(0.98);
+}
+
+.cockpit-card-dragging {
+  opacity: 0.4;
+}
+
+.cockpit-card-dropzone {
+  border-top: 2px solid var(--color-accent) !important;
+}
+
+/* ── Alternating day shading (Scheduled column) ───────────── */
+
+.cockpit-card-alt {
+  background: var(--background-secondary) !important;
+}
+
+/* ── Label bars (Trello-style) ────────────────────────────── */
+
+.cockpit-card-labels {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.cockpit-label {
+  display: inline-block;
+  width: 36px;
+  height: 8px;
+  border-radius: 4px;
+  cursor: default;
+}
+
+/* ── Card title ───────────────────────────────────────────── */
+
+.cockpit-card-title {
+  font-size: 0.84rem;
+  font-weight: 500;
+  line-height: 1.4;
+  word-break: break-word;
+  color: var(--text-normal);
+}
+
+/* ── Card metadata ────────────────────────────────────────── */
+
+.cockpit-card-meta {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.cockpit-meta-icon {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* ── Date pills ───────────────────────────────────────────── */
+
+.cockpit-date {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.cockpit-date-overdue {
+  background: #EB5A46;
+  color: #fff;
+}
+
+.cockpit-date-soon {
+  background: #F2D600;
+  color: #333;
+}
+
+.cockpit-date-future {
+  background: rgba(255,255,255,0.08);
+  color: var(--text-muted);
+}
+
+/* ── Scrollbar ────────────────────────────────────────────── */
+
+.cockpit-column-cards::-webkit-scrollbar {
+  width: 4px;
+}
+
+.cockpit-column-cards::-webkit-scrollbar-thumb {
+  background: var(--background-modifier-border);
+  border-radius: 4px;
+}
+
+/* ── Add list button ──────────────────────────────────────── */
+
+.cockpit-add-column {
+  min-width: 200px;
+  flex: 0 0 200px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 1rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.03);
+  border: 1px dashed var(--background-modifier-border);
+  transition: background 0.1s, color 0.1s;
+}
+
+.cockpit-add-column:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+/* ── Settings ─────────────────────────────────────────────── */
+
+.cockpit-settings-column-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 4px;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.cockpit-settings-column-row:hover {
+  background: var(--background-modifier-hover);
+}
+
+.cockpit-settings-move {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.cockpit-settings-move button {
+  padding: 0 4px;
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.cockpit-settings-color {
+  width: 32px;
+  height: 28px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 1px;
+}
+
+.cockpit-settings-name {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 0.85rem;
+}
+
+.cockpit-settings-rule {
+  flex: 1.5;
+  padding: 4px 8px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background: var(--background-primary);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-family: monospace;
+}
+
+.cockpit-settings-delete {
+  color: var(--text-error);
+  font-size: 0.8rem;
+}
+
+/* ── Card selection ───────────────────────────────────────── */
+
+.cockpit-card-selected {
+  outline: 2px solid var(--color-accent) !important;
+  outline-offset: -1px;
+  opacity: 0.9;
+}
+
+/* ── Selection action bar ─────────────────────────────────── */
+
+.cockpit-selection-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--background-primary);
+  border-top: 2px solid var(--color-accent);
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  z-index: 999;
+  box-shadow: 0 -4px 12px rgba(0,0,0,0.3);
+}
+
+.cockpit-selection-count {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-accent);
+  margin-right: 8px;
+}
+
+.cockpit-selection-btn {
+  font-size: 0.72rem;
+  padding: 3px 8px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background: var(--background-secondary);
+  color: var(--text-normal);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.cockpit-selection-btn:hover {
+  background: var(--background-modifier-hover);
+}
+
+.cockpit-selection-done {
+  background: #61BD4F;
+  color: #fff;
+  border-color: #61BD4F;
+}
+
+.cockpit-selection-delete {
+  background: #EB5A46;
+  color: #fff;
+  border-color: #EB5A46;
+}
+
+.cockpit-selection-sep {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin: 0 4px;
+}
+
+
+/* ── Overdue badge ────────────────────────────────────────── */
+
+.cockpit-overdue-badge {
+  font-size: 0.6rem;
+  background: #EB5A46;
+  color: #fff;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+/* ── Card label tint ──────────────────────────────────────── */
+
+.cockpit-card[style*="--card-tint"] {
+  background: var(--card-tint, var(--background-primary)) !important;
+}
+
+/* ── Privacy mode ─────────────────────────────────────────── */
+
+/* ── Focus mode ───────────────────────────────────────────── */
+
+/* ── Card modal ───────────────────────────────────────────── */
+
+.cockpit-card-modal {
+  max-width: 700px;
+  width: 90vw;
+}
+
+.cockpit-card-modal-content {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 8px 0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.cockpit-card-modal-content h1 {
+  display: none; /* hide the # Title since modal title shows it */
+}
+
+.cockpit-card-modal-edit {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.cockpit-focus-btn {
+  font-size: 0.75rem;
+  padding: 3px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--background-modifier-border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.cockpit-focus-btn:hover {
+  background: var(--background-modifier-hover);
+}
+
+.cockpit-focus-active {
+  background: var(--color-accent) !important;
+  color: #fff !important;
+  border-color: var(--color-accent) !important;
+}
+
+.cockpit-board-focus .cockpit-column {
+  max-width: 50%;
+  flex: 1;
+}
+
+.cockpit-privacy-blur {
+  filter: blur(5px);
+  transition: filter 0.2s;
+  cursor: default;
+}
+
+.cockpit-privacy-blur:hover {
+  filter: none;
+}
+
+/* ── Checklist trigger (clickable) ────────────────────────── */
+
+.cockpit-cl-trigger {
+  cursor: pointer !important;
+  text-decoration: underline dotted;
+}
+
+.cockpit-cl-trigger:hover {
+  color: var(--text-accent) !important;
+}
+
+/* ── Checklist editor modal ───────────────────────────────── */
+
+.cockpit-checklist-modal .modal-content {
+  padding: 0 16px 16px;
+}
+
+.cockpit-cl-section {
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding-bottom: 8px;
+}
+
+.cockpit-cl-global-sort {
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.cockpit-cl-heading {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 8px 0 4px;
+  color: var(--text-accent);
+}
+
+.cockpit-cl-sort-btn {
+  font-size: 0.68rem;
+  padding: 2px 8px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.cockpit-cl-sort-btn:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.cockpit-cl-list {
+  margin-bottom: 8px;
+}
+
+.cockpit-cl-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.cockpit-cl-row:hover {
+  background: var(--background-modifier-hover);
+}
+
+.cockpit-cl-handle {
+  cursor: grab;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  user-select: none;
+  padding: 0 2px;
+}
+
+.cockpit-cl-dragging {
+  opacity: 0.4;
+}
+
+.cockpit-cl-dragover {
+  border-top: 2px solid var(--color-accent);
+}
+
+.cockpit-cl-text {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 0.85rem;
+}
+
+.cockpit-cl-delete {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 2px 4px;
+}
+
+.cockpit-cl-delete:hover {
+  color: var(--text-error);
+}
+
+.cockpit-cl-add-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.cockpit-cl-add-btn {
+  padding: 4px 12px;
+  font-size: 0.82rem;
+}
+
+/* ── Date & Time picker ────────────────────────────────────── */
+
+.cockpit-dt-input {
+  padding: 6px 10px;
+  font-size: 0.9rem;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  margin-bottom: 12px;
+}
+
+.cockpit-dt-save {
+  width: 100%;
+}
+
+.cockpit-cl-save {
+  width: 100%;
+  margin-top: 8px;
+}
+
+/* ── Clickable date pill ──────────────────────────────────── */
+
+.cockpit-date-clickable {
+  cursor: pointer;
+}
+
+.cockpit-date-clickable:hover {
+  filter: brightness(1.2);
+}
+
+/* ── Date/time picker label ───────────────────────────────── */
+
+.cockpit-dt-label {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 12px 0 4px;
+}
+
+/* ── Card Timer ───────────────────────────────────────────── */
+
+.cockpit-timer-display {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+.cockpit-timer-active {
+  color: #61BD4F !important;
+  font-weight: 600;
+  animation: cockpit-timer-pulse 2s ease-in-out infinite;
+}
+
+@keyframes cockpit-timer-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* ── Recurring indicator ──────────────────────────────────── */
+
+.cockpit-recurring {
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.cockpit-recurring:hover {
+  opacity: 1;
+}
+
+/* ── Archive Search ───────────────────────────────────────── */
+
+.cockpit-archive-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.cockpit-archive-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.cockpit-archive-date {
+  padding: 4px 8px;
+  font-size: 0.82rem;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+}
+
+.cockpit-archive-quick {
+  display: flex;
+  gap: 4px;
+}
+
+.cockpit-archive-quick-btn {
+  font-size: 0.72rem;
+  padding: 3px 8px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 12px;
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.cockpit-archive-quick-btn:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.cockpit-archive-search {
+  flex: 1;
+  min-width: 150px;
+  padding: 4px 10px;
+  font-size: 0.82rem;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+}
+
+.cockpit-archive-btn {
+  font-size: 0.75rem;
+  padding: 3px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--background-modifier-border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.cockpit-archive-btn:hover {
+  background: var(--background-modifier-hover);
+}
+
+.cockpit-archive-active {
+  background: var(--color-accent) !important;
+  color: #fff !important;
+  border-color: var(--color-accent) !important;
+}
+
+.cockpit-archive-count {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.cockpit-archive-empty, .cockpit-archive-loading {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 2rem;
+}
+
+.cockpit-archive-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.cockpit-archive-table th {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 2px solid var(--background-modifier-border);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.cockpit-archive-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.cockpit-archive-row:hover {
+  background: var(--background-modifier-hover);
+}
+
+.cockpit-archive-link {
+  color: var(--text-normal) !important;
+  cursor: pointer;
+  text-decoration: none !important;
+}
+
+.cockpit-archive-link:hover {
+  color: var(--text-accent) !important;
+}
+
+.cockpit-archive-load-more {
+  width: 100%;
+  padding: 8px;
+  margin-top: 8px;
+  font-size: 0.82rem;
+  border: 1px dashed var(--background-modifier-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.cockpit-archive-load-more:hover {
+  background: var(--background-modifier-hover);
+}
+
+/* ── Calendar View ────────────────────────────────────────── */
+
+.cockpit-cal-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  flex-wrap: wrap;
+}
+
+.cockpit-cal-mode-btn {
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.cockpit-cal-mode-btn.active {
+  background: var(--color-accent);
+  color: #fff;
+  border-color: var(--color-accent);
+}
+
+.cockpit-cal-nav-btn {
+  font-size: 0.85rem;
+  padding: 2px 8px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.cockpit-cal-nav-btn:hover { color: var(--text-normal); }
+
+.cockpit-cal-date-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  min-width: 140px;
+  text-align: center;
+}
+
+/* Week view — Outlook-style with time grid */
+.cockpit-cal-allday {
+  display: grid;
+  grid-template-columns: 50px repeat(7, 1fr);
+  gap: 1px;
+  border-bottom: 2px solid var(--background-modifier-border);
+  padding-bottom: 4px;
+  margin-bottom: 2px;
+}
+
+.cockpit-cal-allday-col {
+  padding: 2px 4px;
+  min-height: 28px;
+}
+
+.cockpit-cal-timegrid {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.cockpit-cal-timerow {
+  display: grid;
+  grid-template-columns: 50px repeat(7, 1fr);
+  gap: 1px;
+  min-height: 48px;
+  border-bottom: 1px solid var(--background-modifier-border-hover);
+}
+
+.cockpit-cal-time-gutter {
+  font-size: 0.65rem;
+  color: var(--text-faint);
+  text-align: right;
+  padding: 2px 6px 0 0;
+  font-weight: 500;
+}
+
+.cockpit-cal-timecell {
+  position: relative;
+  border-left: 1px solid var(--background-modifier-border-hover);
+}
+
+.cockpit-cal-today-bg {
+  background: rgba(var(--color-accent-rgb, 100, 150, 255), 0.04);
+}
+
+.cockpit-cal-timecard {
+  padding: 4px 6px;
+  min-height: 38px;
+  border-radius: 4px;
+  background: var(--background-secondary);
+  font-size: 0.72rem;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin: 1px;
+  border-left: 3px solid var(--color-accent);
+  display: flex;
+  align-items: flex-start;
+}
+
+.cockpit-cal-timecard:hover {
+  background: var(--background-modifier-hover);
+}
+
+.cockpit-cal-day-header {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 4px 6px;
+  color: var(--text-muted);
+}
+
+.cockpit-cal-today {
+  border-bottom: 2px solid var(--color-accent) !important;
+}
+
+.cockpit-cal-today .cockpit-cal-day-header {
+  color: var(--color-accent);
+}
+
+.cockpit-cal-card {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  background: var(--background-primary);
+  cursor: pointer;
+  font-size: 0.68rem;
+  margin-bottom: 1px;
+}
+
+.cockpit-cal-card:hover { background: var(--background-modifier-hover); }
+
+.cockpit-cal-card-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cockpit-cal-multiday {
+  opacity: 0.7;
+  border-left: 3px solid var(--color-accent);
+}
+
+/* Month view */
+.cockpit-cal-month {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-template-rows: auto repeat(6, 1fr);
+  gap: 1px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.cockpit-cal-month-header {
+  padding: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-align: center;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.cockpit-cal-month-cell {
+  background: var(--background-secondary);
+  padding: 2px;
+  border-radius: 2px;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.cockpit-cal-month-cell:hover { background: var(--background-modifier-hover); }
+
+.cockpit-cal-month-empty { background: transparent; }
+
+.cockpit-cal-month-day {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 2px 4px;
+}
+
+.cockpit-cal-month-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.cockpit-cal-month-card {
+  font-size: 0.62rem;
+  padding: 1px 4px;
+  border-radius: 2px;
+  background: var(--background-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.cockpit-cal-month-card:hover { background: var(--background-modifier-hover); }
+
+.cockpit-cal-month-more {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  padding: 1px 4px;
+}
+
+/* Year view */
+.cockpit-cal-year {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  padding: 8px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.cockpit-cal-year {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.cockpit-cal-year-month {
+  background: var(--background-secondary);
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.cockpit-cal-year-month-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: var(--text-muted);
+}
+
+.cockpit-cal-year-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+
+.cockpit-cal-year-day {
+  width: 100%;
+  aspect-ratio: 1;
+  min-width: 14px;
+  border-radius: 3px;
+  background: var(--background-primary);
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  padding: 1px;
+  align-content: flex-start;
+}
+
+.cockpit-cal-year-day:hover {
+  outline: 2px solid var(--text-muted);
+  z-index: 1;
+}
+
+.cockpit-cal-year-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  flex-shrink: 0;
+  transition: transform 0.1s;
+}
+
+.cockpit-cal-year-dot-hover {
+  transform: scale(1.8);
+  z-index: 1;
+  outline: 1px solid #fff;
+}
+
+.cockpit-cal-year-dot-more {
+  font-size: 5px;
+  color: var(--text-faint);
+  line-height: 1;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Mobile Layout
+   ═══════════════════════════════════════════════════════════ */
+
+/* Header: wrap into two lines */
+body.is-mobile .cockpit-board-header {
+  flex-wrap: wrap !important;
+  gap: 4px !important;
+  padding: 4px 8px !important;
+}
+
+body.is-mobile .cockpit-board-header h2 {
+  font-size: 0.9rem !important;
+  width: 100% !important;
+  margin-bottom: 2px !important;
+}
+
+body.is-mobile .cockpit-search-wrap {
+  max-width: unset !important;
+  width: 100% !important;
+  order: 10;
+}
+
+body.is-mobile .cockpit-search {
+  font-size: 1rem !important;
+  padding: 10px 14px !important;
+  border-radius: 8px !important;
+}
+
+body.is-mobile .cockpit-week-separator {
+  font-size: 0.72rem !important;
+  padding: 8px 4px 4px !important;
+  margin-top: 8px !important;
+  font-weight: 700 !important;
+  color: var(--text-accent) !important;
+}
+
+body.is-mobile .cockpit-filter-dropdown-btn,
+body.is-mobile .cockpit-archive-btn,
+body.is-mobile .cockpit-focus-btn {
+  font-size: 0.7rem !important;
+  padding: 4px 8px !important;
+}
+
+/* Hide less important header buttons on mobile */
+body.is-mobile .cockpit-focus-btn {
+  display: none !important;
+}
+
+/* Tab bar: compact, scrollable */
+body.is-mobile .cockpit-mobile-tabs {
+  display: flex;
+  overflow-x: auto;
+  gap: 2px;
+  padding: 4px 4px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  -webkit-overflow-scrolling: touch;
+  flex-shrink: 0;
+}
+
+body.is-mobile .cockpit-mobile-tab {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  border-radius: 4px;
+  white-space: nowrap;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+body.is-mobile .cockpit-mobile-tab-active {
+  color: var(--text-normal);
+  background: var(--background-secondary);
+  border-bottom-color: var(--column-color, var(--color-accent));
+}
+
+body.is-mobile .cockpit-mobile-tab-count {
+  font-size: 0.55rem;
+  background: var(--background-modifier-border);
+  color: var(--text-muted);
+  padding: 0 4px;
+  border-radius: 6px;
+  margin-left: 2px;
+}
+
+/* Column area: single column at a time */
+body.is-mobile .cockpit-mobile-column-area {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 4px;
+  min-height: 0;
+}
+
+body.is-mobile .cockpit-mobile-column-area .cockpit-column {
+  min-width: unset !important;
+  max-width: unset !important;
+  width: 100%;
+  border-radius: 0;
+  border-top: none;
+  background: transparent;
+  max-height: unset !important;
+}
+
+body.is-mobile .cockpit-mobile-column-area .cockpit-column-cards {
+  max-height: unset !important;
+  overflow: visible !important;
+}
+
+body.is-mobile .cockpit-mobile-column-area .cockpit-column-header {
+  display: none;
+}
+
+/* Cards: full width, good touch targets */
+body.is-mobile .cockpit-card {
+  padding: 10px 12px !important;
+  min-height: 44px;
+  margin-bottom: 4px;
+}
+
+body.is-mobile .cockpit-card-title {
+  font-size: 0.92rem !important;
+}
+
+body.is-mobile .cockpit-card-meta {
+  font-size: 0.78rem !important;
+  margin-top: 4px !important;
+}
+
+body.is-mobile .cockpit-label {
+  width: 36px;
+  height: 8px;
+}
+
+/* Hide desktop-only elements */
+body.is-mobile .cockpit-add-column { display: none !important; }
+body.is-mobile .cockpit-board { display: none !important; }
+body.is-mobile .cockpit-week-separator { font-size: 0.6rem !important; }
+
+/* Calendar mobile adjustments */
+body.is-mobile .cockpit-cal-controls {
+  flex-wrap: wrap !important;
+  gap: 4px !important;
+  padding: 4px !important;
+}
+
+body.is-mobile .cockpit-cal-timegrid {
+  height: calc(100vh - 220px) !important;
+}
+
+body.is-mobile .cockpit-cal-allday {
+  max-height: 80px !important;
+  font-size: 0.65rem !important;
+}
+
+body.is-mobile .cockpit-cal-timecard {
+  font-size: 0.6rem !important;
+  padding: 2px 3px !important;
+  min-height: 28px !important;
+}
+
+body.is-mobile .cockpit-cal-day-header {
+  font-size: 0.6rem !important;
+}
+
+
+/* ── Calendar height fixes ────────────────────────────────── */
+
+.cockpit-board-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.cockpit-cal-controls {
+  flex-shrink: 0;
+}
+
+.cockpit-cal-month {
+  height: calc(100vh - 140px) !important;
+}
+
+.cockpit-cal-timegrid {
+  height: calc(100vh - 180px) !important;
+  overflow-y: auto;
+}
+
+.cockpit-cal-allday {
+  flex-shrink: 0;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+/* Year dots bigger */
+.cockpit-cal-year-dot {
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 2px !important;
+}
+
+.cockpit-cal-year-dot-more {
+  font-size: 6px !important;
+}
+
+.cockpit-cal-year-days {
+  gap: 3px !important;
+}
+
+.cockpit-cal-year-day {
+  min-width: 18px !important;
+}
+
+/* Year tooltip styling */
+.cockpit-cal-year-tooltip {
+  position: absolute;
+  z-index: 100;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 0.75rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  max-width: 250px;
+  pointer-events: none;
+  white-space: pre-line;
+  line-height: 1.5;
+}
+
+.cockpit-cal-year-tooltip-title {
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.cockpit-cal-year-tooltip-item {
+  color: var(--text-normal);
+}
+
+.cockpit-cal-year-tooltip-item-highlight {
+  color: var(--text-accent) !important;
+  font-weight: 700;
+}
+
+/* ── New classes for inline styles moved to CSS ──────────── */
+
+.cockpit-card-hidden {
+  display: none;
+}
+
+.cockpit-dt-time-input {
+  margin-left: 8px;
+}
+
+.cockpit-dt-save-btn {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.cockpit-new-task-input {
+  width: 100%;
+  padding: 8px;
+  font-size: 1rem;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+}
+
+/* ── Welcome / first-run screen ──────────────────────────── */
+
+.cockpit-welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 2rem;
+}
+
+.cockpit-welcome h2 {
+  margin-bottom: 8px;
+  color: var(--text-normal);
+}
+
+/* ── Label Colors settings ───────────────────────────────── */
+
+.cockpit-settings-labels {
+  margin-bottom: 12px;
+}

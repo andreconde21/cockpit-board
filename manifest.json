@@ -1,0 +1,10 @@
+{
+  "id": "cockpit-board",
+  "name": "Cockpit Board",
+  "version": "1.0.0",
+  "minAppVersion": "1.0.0",
+  "description": "Dynamic Kanban board from frontmatter properties with calendar views, timers, and recurring tasks.",
+  "author": "Outsmartis",
+  "authorUrl": "https://github.com/andreconde21",
+  "isDesktopOnly": false
+}
