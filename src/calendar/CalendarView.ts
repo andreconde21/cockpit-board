@@ -1,4 +1,5 @@
 import type { CardData, CalendarCardData, CockpitBoardSettings } from "../types";
+import { formatDateLocal } from "../ui/dom-helpers.js";
 import { renderWeekView } from "./WeekView";
 import { renderMonthView } from "./MonthView";
 import { renderYearView, hideYearTooltip } from "./YearView";
@@ -42,12 +43,12 @@ export async function renderCalendarView(
     mon.setDate(cd.getDate() - (day === 0 ? 6 : day - 1));
     const sun = new Date(mon);
     sun.setDate(mon.getDate() + 6);
-    rangeFrom = mon.toISOString().split("T")[0];
-    rangeTo = sun.toISOString().split("T")[0];
+    rangeFrom = formatDateLocal(mon);
+    rangeTo = formatDateLocal(sun);
   } else if (ctx.calendarMode === "month") {
     rangeFrom = `${cd.getFullYear()}-${String(cd.getMonth() + 1).padStart(2, "0")}-01`;
     const last = new Date(cd.getFullYear(), cd.getMonth() + 1, 0);
-    rangeTo = last.toISOString().split("T")[0];
+    rangeTo = formatDateLocal(last);
   } else {
     rangeFrom = `${cd.getFullYear()}-01-01`;
     rangeTo = `${cd.getFullYear()}-12-31`;

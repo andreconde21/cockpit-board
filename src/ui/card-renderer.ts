@@ -1,7 +1,7 @@
 import { Menu } from "obsidian";
 import { ConfirmModal } from "./confirm-modal";
 import type { CardData, ColumnConfig, CockpitBoardSettings, TimerData } from "../types";
-import { getToday, getTomorrow, datePillClass, formatDueDisplay, getLabelColor } from "./dom-helpers";
+import { getToday, getTomorrow, datePillClass, formatDueDisplay, getLabelColor, formatDateLocal } from "./dom-helpers";
 
 export interface CardRendererContext {
   settings: CockpitBoardSettings;
@@ -22,7 +22,8 @@ export interface CardRendererContext {
   selectRange(card: CardData, el: HTMLElement): void;
   clearSelection(): void;
   showBulkMenu(e: MouseEvent): void;
-  handleDrop(card: CardData, col: ColumnConfig, neighbor?: CardData): Promise<void>;
+  handleDrop(card: CardData, col: ColumnConfig, neighbor?: CardData, forceDate?: boolean): Promise<void>;
+  isCtrlHeld(): boolean;
   persistColumnOrder(colId: string): Promise<void>;
   updateCardProperty(file: unknown, props: Record<string, unknown>): Promise<void>;
   duplicateCard(card: CardData): Promise<void>;
@@ -291,12 +292,12 @@ function showCardContextMenu(e: MouseEvent, card: CardData, ctx: CardRendererCon
       .onClick(() => { void ctx.updateCardProperty(card.file, { time: "" }); }));
   }
   menu.addItem((i) => i.setTitle("Set due tomorrow").setIcon("calendar-plus")
-    .onClick(() => { void ctx.updateCardProperty(card.file, { status: "scheduled", due: getTomorrow().toISOString().split("T")[0] }); }));
+    .onClick(() => { void ctx.updateCardProperty(card.file, { status: "scheduled", due: formatDateLocal(getTomorrow()) }); }));
   menu.addItem((i) => i.setTitle("Set due next week").setIcon("calendar-range")
     .onClick(() => {
       const d = getToday();
       d.setDate(d.getDate() + (8 - d.getDay()) % 7 || 7);
-      void ctx.updateCardProperty(card.file, { status: "scheduled", due: d.toISOString().split("T")[0] });
+      void ctx.updateCardProperty(card.file, { status: "scheduled", due: formatDateLocal(d) });
     }));
   menu.addItem((i) => i.setTitle("Set date & time...").setIcon("calendar-clock")
     .onClick(() => ctx.promptDateTime(card)));
@@ -417,6 +418,7 @@ function attachDragHandlers(el: HTMLElement, card: CardData, ctx: CardRendererCo
       e.stopPropagation();
       el.classList.remove("cockpit-card-dropzone");
       if (!ctx.draggedEl || ctx.draggedEl === el) return;
+      const ctrlDrag = ctx.isCtrlHeld();
 
       // Bulk drag
       if (ctx.selectedCards.size > 1 && ctx.selectedCards.has(ctx.draggedCard?.file?.path || "")) {
@@ -429,7 +431,7 @@ function attachDragHandlers(el: HTMLElement, card: CardData, ctx: CardRendererCo
             try {
               const count = ctx.selectedCards.size;
               for (const { card: selCard } of ctx.selectedCards.values()) {
-                if (selCard.column !== targetCol.id) await ctx.handleDrop(selCard, targetCol, card);
+                if (selCard.column !== targetCol.id) await ctx.handleDrop(selCard, targetCol, card, ctrlDrag);
               }
               ctx.toast(`Moved ${count} card(s) to ${targetCol.label}`);
             } finally {
@@ -453,7 +455,7 @@ function attachDragHandlers(el: HTMLElement, card: CardData, ctx: CardRendererCo
         void ctx.persistColumnOrder(targetColId!);
       } else if (targetCol) {
         void (async () => {
-          await ctx.handleDrop(ctx.draggedCard!, targetCol, card);
+          await ctx.handleDrop(ctx.draggedCard!, targetCol, card, ctrlDrag);
           await ctx.persistColumnOrder(targetColId!);
         })();
       }

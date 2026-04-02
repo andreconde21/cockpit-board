@@ -1,5 +1,5 @@
 import type { CardData, ColumnConfig, CockpitBoardSettings } from "./types";
-import { todayStr, getToday, getTomorrow, parseDate } from "./ui/dom-helpers";
+import { todayStr, getToday, getTomorrow, parseDate, formatDateLocal } from "./ui/dom-helpers";
 
 export function matchesRule(card: CardData, rule: string): boolean {
   if (!rule) return false;
@@ -40,37 +40,39 @@ export function resolveColumn(card: CardData, columns: ColumnConfig[]): string {
   return columns[0]?.id || "backlog";
 }
 
-export function getDropUpdates(col: ColumnConfig, currentCard: CardData, settings?: CockpitBoardSettings): Record<string, string> {
+/**
+ * @param forceDate — true when Ctrl+drag: always override dates to match column
+ */
+export function getDropUpdates(col: ColumnConfig, currentCard: Partial<CardData>, settings?: CockpitBoardSettings, forceDate = false): Record<string, string> {
   const updates: Record<string, string> = {};
   const rule = col.rule || "";
-  const adjustDate = settings?.adjustDateOnMove ?? false;
-  const setToday = settings?.setTodayOnMove ?? false;
 
   if (rule.includes("status:")) {
     const status = rule.match(/status:(\S+)/)?.[1] || col.id;
     updates.status = status;
     if (status === "done") updates.completed = todayStr();
+    // Clear date on in-progress if no time and setting is on
+    if (status === "in-progress" && settings?.clearDateOnInProgress && !currentCard.time) {
+      updates.due = "";
+    }
   } else if (rule.includes("date:today")) {
     updates.status = "scheduled";
-    // When setTodayOnMove is on, always overwrite date to today
-    if (setToday || !currentCard.due) {
+    if (forceDate) {
       updates.due = todayStr();
     }
   } else if (rule.includes("date:tomorrow")) {
     updates.status = "scheduled";
-    // When adjustDateOnMove is on, always overwrite date to tomorrow
-    if (adjustDate || !currentCard.due) {
-      updates.due = getTomorrow().toISOString().split("T")[0];
+    if (forceDate) {
+      updates.due = formatDateLocal(getTomorrow());
     }
   } else if (rule.includes("date:future")) {
     updates.status = "scheduled";
-    // When adjustDateOnMove is on and card has a past/today/tomorrow date, push it forward
-    if (adjustDate && currentCard.due) {
+    if (forceDate && currentCard.due) {
       const d = parseDate(currentCard.due);
       if (d && d <= getTomorrow()) {
         const future = new Date(getTomorrow());
         future.setDate(future.getDate() + 1);
-        updates.due = future.toISOString().split("T")[0];
+        updates.due = formatDateLocal(future);
       }
     }
   } else if (rule.includes("no-date")) {

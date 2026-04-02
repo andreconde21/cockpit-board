@@ -1,7 +1,7 @@
 import { Menu, App } from "obsidian";
 import type { CardData, ColumnConfig, CockpitBoardSettings } from "../types";
 import { ConfirmModal } from "./confirm-modal";
-import { todayStr, getToday, getTomorrow } from "./dom-helpers";
+import { todayStr, getToday, getTomorrow, formatDateLocal } from "./dom-helpers";
 
 export interface SelectionContext {
   containerEl: HTMLElement;
@@ -143,12 +143,12 @@ export function showBulkMenu(e: MouseEvent, ctx: SelectionContext): void {
   menu.addSeparator();
   menu.addItem((i) => i.setTitle("Set date & time...").setIcon("calendar-clock").onClick(() => bulkSetDateTime(ctx)));
   menu.addItem((i) => i.setTitle("Set due tomorrow").setIcon("calendar-plus")
-    .onClick(() => void bulkSetDate(getTomorrow().toISOString().split("T")[0], ctx)));
+    .onClick(() => void bulkSetDate(formatDateLocal(getTomorrow()), ctx)));
   menu.addItem((i) => i.setTitle("Set due next week").setIcon("calendar-range")
     .onClick(() => {
       const d = getToday();
       d.setDate(d.getDate() + (8 - d.getDay()) % 7 || 7);
-      void bulkSetDate(d.toISOString().split("T")[0], ctx);
+      void bulkSetDate(formatDateLocal(d), ctx);
     }));
   menu.addItem((i) => i.setTitle("Clear due dates").setIcon("calendar-x").onClick(() => void bulkClearDueDate(ctx)));
   menu.addSeparator();

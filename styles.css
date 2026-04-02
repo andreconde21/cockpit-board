@@ -683,6 +683,23 @@
   50% { opacity: 0.6; }
 }
 
+/* ── Ctrl+drag indicator ──────────────────────────────────── */
+
+.cockpit-ctrl-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--color-accent);
+  color: #fff;
+  text-align: center;
+  padding: 6px 16px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  z-index: 999;
+  pointer-events: none;
+}
+
 /* ── Pomodoro ─────────────────────────────────────────────── */
 
 .cockpit-pomodoro-display {

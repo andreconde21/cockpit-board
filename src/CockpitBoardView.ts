@@ -7,7 +7,7 @@ import type { CardData, ColumnConfig, CalendarCardData, CockpitBoardSettings } f
 import { VIEW_TYPE } from "./constants";
 import { CockpitCard } from "./CockpitCard";
 import { getDropUpdates } from "./rule-engine";
-import { todayStr, getToday, getTomorrow, parseDate } from "./ui/dom-helpers";
+import { todayStr, getToday, getTomorrow, parseDate, formatDateLocal } from "./ui/dom-helpers";
 import { type CardRendererContext } from "./ui/card-renderer";
 import { createColumn, type ColumnRendererContext } from "./ui/column-renderer";
 import {
@@ -38,6 +38,7 @@ export class CockpitBoardView extends ItemView {
   activeFilters: Set<string> = new Set();
   pauseRefresh = false;
   _bulkOperating = false;
+  ctrlHeld = false;
   private _archiveSearchTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(leaf: WorkspaceLeaf, plugin: CockpitBoardPlugin) {
@@ -60,6 +61,30 @@ export class CockpitBoardView extends ItemView {
     this.registerEvent(this.app.vault.on("delete", () => this.debouncedRefresh()));
     this.registerEvent(this.app.vault.on("rename", () => this.debouncedRefresh()));
     this.registerEvent(this.app.metadataCache.on("changed", () => this.debouncedRefresh()));
+
+    // Track Ctrl key state for Ctrl+drag date override
+    this.registerDomEvent(document, "keydown", (e: KeyboardEvent) => {
+      if (e.key === "Control") {
+        this.ctrlHeld = true;
+        this.showCtrlBar();
+      }
+    });
+    this.registerDomEvent(document, "keyup", (e: KeyboardEvent) => {
+      if (e.key === "Control") {
+        this.ctrlHeld = false;
+        this.hideCtrlBar();
+      }
+    });
+    // Reset on window blur — but NOT during drag (drag can cause brief blur)
+    this.registerDomEvent(window, "blur", () => {
+      // Delay reset to avoid false reset during drag-and-drop
+      setTimeout(() => {
+        if (!document.hasFocus()) {
+          this.ctrlHeld = false;
+          this.hideCtrlBar();
+        }
+      }, 100);
+    });
 
     this.registerDomEvent(document, "keydown", (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -409,6 +434,22 @@ export class CockpitBoardView extends ItemView {
     area.appendChild(colEl);
   }
 
+  // ── Ctrl+drag indicator ──
+  private _ctrlBar: HTMLElement | null = null;
+
+  private showCtrlBar(): void {
+    if (this._ctrlBar) return;
+    this._ctrlBar = this.containerEl.createDiv({ cls: "cockpit-ctrl-bar" });
+    this._ctrlBar.textContent = "\u2328 Ctrl held \u2014 click to multi-select \u00b7 drop will override date to match column";
+  }
+
+  private hideCtrlBar(): void {
+    if (this._ctrlBar) {
+      this._ctrlBar.remove();
+      this._ctrlBar = null;
+    }
+  }
+
   // ── Filtering ──
   private collectAllLabels(cards: CardData[]): string[] {
     const labels = new Set<string>();
@@ -436,13 +477,13 @@ export class CockpitBoardView extends ItemView {
   showBulkMenu(e: MouseEvent): void { showBulkMenu(e, this.getSelectionContext()); }
 
   // ── Actions ──
-  async handleDrop(card: CardData, targetCol: ColumnConfig, neighborCard?: CardData): Promise<void> {
+  async handleDrop(card: CardData, targetCol: ColumnConfig, neighborCard?: CardData, forceDate = false): Promise<void> {
     if (card.column === targetCol.id) return;
-    const updates = getDropUpdates(targetCol, card, this.settings);
+    const updates = getDropUpdates(targetCol, card, this.settings, forceDate);
 
-    // If getDropUpdates didn't set a date and the card has no date, infer from neighbor/column
+    // When Ctrl+drag to Scheduled and card has no date, infer from neighbor/column
     const isDateCol = targetCol.rule === "date:future" || targetCol.rule === "date:today" || targetCol.rule === "date:tomorrow";
-    if (isDateCol && !("due" in updates) && !card.due) {
+    if (forceDate && isDateCol && !("due" in updates) && !card.due) {
       if (neighborCard?.due) {
         updates.due = neighborCard.due;
       } else {
@@ -453,29 +494,20 @@ export class CockpitBoardView extends ItemView {
         } else if (targetCol.rule === "date:today") {
           updates.due = todayStr();
         } else {
-          updates.due = getTomorrow().toISOString().split("T")[0];
+          updates.due = formatDateLocal(getTomorrow());
         }
       }
     }
 
     try {
-      await this.app.fileManager.processFrontMatter(card.file, (fm: Record<string, unknown>) => {
-        if ("status" in updates) fm.status = updates.status;
-        if ("due" in updates) fm.due = updates.due;
-        if ("time" in updates) fm.time = updates.time;
-        if ("completed" in updates) fm.completed = updates.completed;
-        // Set order 0 so the card lands at the top of the target column
-        fm.order = 0;
-        if (updates._addLabel) {
-          const labels = Array.isArray(fm.labels) ? (fm.labels as string[]) : [];
-          if (!labels.includes(updates._addLabel)) fm.labels = [...labels, updates._addLabel];
-        }
-        if (updates._removeLabel) {
-          fm.labels = (Array.isArray(fm.labels) ? (fm.labels as string[]) : []).filter((l: string) => l !== updates._removeLabel);
-        }
-      });
+      const content = await this.app.vault.read(card.file);
+      const newContent = this.applyFrontmatterUpdates(content, updates);
+      await this.app.vault.modify(card.file, newContent);
+      // Wait for metadata cache to pick up the file change
+      await new Promise(r => setTimeout(r, 200));
       if (!this._bulkOperating) {
         this.toast(`Moved to ${targetCol.label || targetCol.id}`);
+        void this.render();
       }
     } catch (e: unknown) {
       console.error("Cockpit Board:", e);
@@ -483,9 +515,54 @@ export class CockpitBoardView extends ItemView {
     }
   }
 
+  private applyFrontmatterUpdates(content: string, updates: Record<string, string>): string {
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    if (!fmMatch) return content;
+    let fm = fmMatch[1];
+    const body = content.slice(fmMatch[0].length);
+
+    const setField = (field: string, value: string) => {
+      const regex = new RegExp(`^${field}:.*$`, "m");
+      if (regex.test(fm)) {
+        fm = fm.replace(regex, `${field}: ${value}`);
+      } else {
+        fm += `\n${field}: ${value}`;
+      }
+    };
+
+    if ("status" in updates) setField("status", updates.status);
+    if ("due" in updates) setField("due", updates.due);
+    if ("time" in updates) setField("time", updates.time);
+    if ("completed" in updates) setField("completed", updates.completed);
+    setField("order", "0");
+
+    if (updates._addLabel) {
+      const labelsMatch = fm.match(/^labels:\s*\[(.*)\]$/m);
+      if (labelsMatch) {
+        const existing = labelsMatch[1].split(",").map(s => s.trim().replace(/"/g, "")).filter(Boolean);
+        if (!existing.includes(updates._addLabel)) {
+          existing.push(updates._addLabel);
+          fm = fm.replace(/^labels:.*$/m, `labels: [${existing.map(l => `"${l}"`).join(", ")}]`);
+        }
+      }
+    }
+    if (updates._removeLabel) {
+      const labelsMatch = fm.match(/^labels:\s*\[(.*)\]$/m);
+      if (labelsMatch) {
+        const existing = labelsMatch[1].split(",").map(s => s.trim().replace(/"/g, "")).filter(Boolean);
+        const filtered = existing.filter(l => l !== updates._removeLabel);
+        fm = fm.replace(/^labels:.*$/m, `labels: [${filtered.map(l => `"${l}"`).join(", ")}]`);
+      }
+    }
+
+    return `---\n${fm}\n---${body}`;
+  }
+
   async persistColumnOrder(colId: string): Promise<void> {
     this.pauseRefresh = true;
     try {
+      // Delay to let Obsidian's file cache catch up after vault.modify writes
+      await new Promise(r => setTimeout(r, 300));
       const colEl = this.containerEl.querySelector(`.cockpit-column[data-column-id="${colId}"]`);
       if (!colEl) return;
       const cardEls = Array.from(colEl.querySelectorAll(".cockpit-card[data-path]"));
@@ -585,12 +662,17 @@ export class CockpitBoardView extends ItemView {
   async duplicateCard(card: CardData): Promise<void> {
     try {
       const content = await this.app.vault.read(card.file);
-      const newContent = content.replace(/^status:\s*.*/m, "status: scheduled").replace(/^completed:\s*.*/m, "completed:");
       const base = card.file.path.replace(/\.md$/, "");
       let path = base + "-copy.md";
       let i = 2;
       while (this.app.vault.getAbstractFileByPath(path)) { path = base + `-copy-${i}.md`; i++; }
-      await this.app.vault.create(path, newContent);
+      const newFile = await this.app.vault.create(path, content);
+      // Reset status/completed but preserve everything else (labels, project, etc.)
+      await this.app.fileManager.processFrontMatter(newFile, (fm: Record<string, unknown>) => {
+        fm.status = "scheduled";
+        fm.completed = "";
+        delete fm.order;
+      });
     } catch { new Notice("Error duplicating card"); }
   }
 
@@ -630,22 +712,29 @@ export class CockpitBoardView extends ItemView {
         }
       }
 
+      // Mark original as done
       await this.app.fileManager.processFrontMatter(card.file, (fm: Record<string, unknown>) => {
         fm.status = "done";
         fm.completed = todayStr();
         fm.order = 0;
       });
 
-      const newFm = frontmatter
-        .replace(/^status:\s*.*$/m, "status: pending")
-        .replace(/^completed:\s*.*$/m, "completed: ")
-        .replace(/^order:\s*.*$\n?/m, "");
-      const newContent = newFm + newBodyLines.join("\n");
+      // Create continuation with original frontmatter + unchecked items
+      const origContent = await this.app.vault.read(card.file);
+      const origFmMatch = origContent.match(/^---\n([\s\S]*?)\n---/);
+      const origFmBlock = origFmMatch ? origFmMatch[0] : frontmatter;
+      const newContent = origFmBlock + "\n" + newBodyLines.join("\n");
       const base = card.file.path.replace(/\.md$/, "");
       let path = base + "-cont.md";
       let n = 2;
       while (this.app.vault.getAbstractFileByPath(path)) { path = base + `-cont-${n}.md`; n++; }
-      await this.app.vault.create(path, newContent);
+      const newFile = await this.app.vault.create(path, newContent);
+      // Reset status/completed but keep labels, project, etc.
+      await this.app.fileManager.processFrontMatter(newFile, (fm: Record<string, unknown>) => {
+        fm.status = "pending";
+        fm.completed = "";
+        delete fm.order;
+      });
       this.toast("Split: original \u2192 Done, new card with remaining items");
     } catch (e: unknown) {
       console.error("Cockpit Board:", e);
@@ -736,7 +825,8 @@ export class CockpitBoardView extends ItemView {
       selectRange: (card: CardData, el: HTMLElement) => this.selectRange(card, el),
       clearSelection: () => this.clearSelection(),
       showBulkMenu: (e: MouseEvent) => this.showBulkMenu(e),
-      handleDrop: (card: CardData, col: ColumnConfig, neighbor?: CardData) => this.handleDrop(card, col, neighbor),
+      handleDrop: (card: CardData, col: ColumnConfig, neighbor?: CardData, forceDate?: boolean) => this.handleDrop(card, col, neighbor, forceDate),
+      isCtrlHeld: () => this.ctrlHeld,
       persistColumnOrder: (colId: string) => this.persistColumnOrder(colId),
       updateCardProperty: (file: unknown, props: Record<string, unknown>) => this.updateCardProperty(file, props),
       duplicateCard: (card: CardData) => this.duplicateCard(card),

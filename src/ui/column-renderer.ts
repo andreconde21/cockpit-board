@@ -85,6 +85,7 @@ export function createColumn(col: ColumnConfig, cards: CardData[], overdueCount:
       e.preventDefault();
       el.classList.remove("cockpit-column-dragover");
       if (!ctx.draggedCard || !ctx.draggedEl) return;
+      const ctrlDrag = ctx.isCtrlHeld();
 
       // Bulk drag
       if (ctx.selectedCards.size > 1 && ctx.selectedCards.has(ctx.draggedCard.file.path)) {
@@ -94,7 +95,7 @@ export function createColumn(col: ColumnConfig, cards: CardData[], overdueCount:
           try {
             const count = ctx.selectedCards.size;
             for (const { card: selCard } of ctx.selectedCards.values()) {
-              if (selCard.column !== col.id) await ctx.handleDrop(selCard, col);
+              if (selCard.column !== col.id) await ctx.handleDrop(selCard, col, undefined, ctrlDrag);
             }
             ctx.toast(`Moved ${count} card(s) to ${col.label}`);
           } finally {
@@ -113,7 +114,7 @@ export function createColumn(col: ColumnConfig, cards: CardData[], overdueCount:
         void ctx.persistColumnOrder(col.id);
       } else {
         void (async () => {
-          await ctx.handleDrop(ctx.draggedCard!, col);
+          await ctx.handleDrop(ctx.draggedCard!, col, undefined, ctrlDrag);
           await ctx.persistColumnOrder(col.id);
           void ctx.render();
         })();

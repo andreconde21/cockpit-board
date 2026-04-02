@@ -1,6 +1,6 @@
 import { TFile, TFolder, Notice } from "obsidian";
 import type { CockpitBoardSettings } from "./types";
-import { fmStr } from "./ui/dom-helpers.js";
+import { fmStr, formatDateLocal } from "./ui/dom-helpers.js";
 
 export function scheduleNotifications(
   settings: CockpitBoardSettings,
@@ -15,7 +15,7 @@ export function scheduleNotifications(
   if (!folder || !(folder instanceof TFolder)) return;
 
   const now = new Date();
-  const todayStr = now.toISOString().split("T")[0];
+  const todayStr = formatDateLocal(now);
 
   for (const child of folder.children || []) {
     if (!(child instanceof TFile) || child.extension !== "md") continue;

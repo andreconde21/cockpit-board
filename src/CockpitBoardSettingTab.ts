@@ -96,18 +96,10 @@ export class CockpitBoardSettingTab extends PluginSettingTab {
       }));
 
     new Setting(containerEl)
-      .setName("Adjust date on column move")
-      .setDesc("When moving a card to soon or scheduled, automatically update the due date to match the column.")
-      .addToggle(t => t.setValue(this.plugin.settings.adjustDateOnMove).onChange(v => {
-        this.plugin.settings.adjustDateOnMove = v;
-        void this.plugin.saveSettings();
-      }));
-
-    new Setting(containerEl)
-      .setName("Set today's date on move")
-      .setDesc("When moving a card to today, always set the due date to today (even if one is already set).")
-      .addToggle(t => t.setValue(this.plugin.settings.setTodayOnMove).onChange(v => {
-        this.plugin.settings.setTodayOnMove = v;
+      .setName("Clear date on in progress")
+      .setDesc("When moving a card to in progress, clear the due date if no time is set.")
+      .addToggle(t => t.setValue(this.plugin.settings.clearDateOnInProgress).onChange(v => {
+        this.plugin.settings.clearDateOnInProgress = v;
         void this.plugin.saveSettings();
       }));
 

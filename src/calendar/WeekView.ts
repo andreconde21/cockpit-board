@@ -1,5 +1,5 @@
 import type { CalendarCardData, CockpitBoardSettings } from "../types";
-import { todayStr, getLabelColor } from "../ui/dom-helpers";
+import { todayStr, getLabelColor, formatDateLocal } from "../ui/dom-helpers";
 
 export function renderWeekView(
   container: HTMLElement,
@@ -21,7 +21,7 @@ export function renderWeekView(
   for (let i = 0; i < 7; i++) {
     const cellDate = new Date(monday);
     cellDate.setDate(monday.getDate() + i);
-    const dateStr = cellDate.toISOString().split("T")[0];
+    const dateStr = formatDateLocal(cellDate);
     dates.push(dateStr);
     const isToday = dateStr === today;
 

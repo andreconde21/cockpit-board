@@ -6,8 +6,16 @@ export function fmStr(val: unknown): string {
   return typeof val === "string" ? val : "";
 }
 
+/** Format a Date as YYYY-MM-DD in local time (not UTC). */
+export function formatDateLocal(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export function todayStr(): string {
-  return new Date().toISOString().split("T")[0];
+  return formatDateLocal(new Date());
 }
 
 export function getToday(): Date {

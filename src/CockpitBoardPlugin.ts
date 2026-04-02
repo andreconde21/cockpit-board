@@ -6,6 +6,7 @@ import { CockpitBoardSettingTab } from "./CockpitBoardSettingTab";
 import { checkRecurring } from "./recurring";
 import { scheduleNotifications } from "./notifications";
 import { PomodoroEngine } from "./pomodoro";
+import { todayStr } from "./ui/dom-helpers.js";
 
 export default class CockpitBoardPlugin extends Plugin {
   settings!: CockpitBoardSettings;
@@ -195,7 +196,7 @@ export default class CockpitBoardPlugin extends Plugin {
     } catch {
       this._dismissedRecurring = {};
     }
-    const today = new Date().toISOString().split("T")[0];
+    const today = todayStr();
     for (const key of Object.keys(this._dismissedRecurring)) {
       if (this._dismissedRecurring[key] !== today) delete this._dismissedRecurring[key];
     }
@@ -208,7 +209,7 @@ export default class CockpitBoardPlugin extends Plugin {
   }
 
   async dismissRecurringTask(slug: string): Promise<void> {
-    this._dismissedRecurring[slug] = new Date().toISOString().split("T")[0];
+    this._dismissedRecurring[slug] = todayStr();
     await this.saveDismissedRecurring();
   }
 

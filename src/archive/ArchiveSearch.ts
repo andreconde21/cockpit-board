@@ -1,6 +1,6 @@
 import { TFile, TFolder } from "obsidian";
 import type { ArchiveResult, CalendarCardData, CockpitBoardSettings } from "../types";
-import { fmStr } from "../ui/dom-helpers.js";
+import { fmStr, formatDateLocal } from "../ui/dom-helpers.js";
 
 export interface ArchiveContext {
   settings: CockpitBoardSettings;
@@ -26,8 +26,8 @@ export function renderArchiveSearch(contentEl: HTMLElement, ctx: ArchiveContext)
   const today = new Date();
   const weekAgo = new Date(today);
   weekAgo.setDate(weekAgo.getDate() - 7);
-  fromInput.value = weekAgo.toISOString().split("T")[0];
-  toInput.value = today.toISOString().split("T")[0];
+  fromInput.value = formatDateLocal(weekAgo);
+  toInput.value = formatDateLocal(today);
 
   const quickBtns = controls.createDiv({ cls: "cockpit-archive-quick" });
   const quickFilters = [
@@ -43,15 +43,15 @@ export function renderArchiveSearch(contentEl: HTMLElement, ctx: ArchiveContext)
       if (qf.label === "Last Month") {
         const d = new Date(today.getFullYear(), today.getMonth() - 1, 1);
         const end = new Date(today.getFullYear(), today.getMonth(), 0);
-        fromInput.value = d.toISOString().split("T")[0];
-        toInput.value = end.toISOString().split("T")[0];
+        fromInput.value = formatDateLocal(d);
+        toInput.value = formatDateLocal(end);
       } else {
         const from = new Date(today);
         from.setDate(from.getDate() - qf.from);
         const to = new Date(today);
         to.setDate(to.getDate() - qf.to);
-        fromInput.value = from.toISOString().split("T")[0];
-        toInput.value = to.toISOString().split("T")[0];
+        fromInput.value = formatDateLocal(from);
+        toInput.value = formatDateLocal(to);
       }
       doSearch();
     });

@@ -1,5 +1,6 @@
 import { TFile, Notice } from "obsidian";
 import type { CockpitBoardSettings, RecurringConfig } from "./types";
+import { formatDateLocal } from "./ui/dom-helpers.js";
 
 interface TodayInfo {
   year: number;
@@ -54,7 +55,7 @@ export async function checkRecurring(
       month: now.getMonth() + 1,
       day: now.getDate(),
       dow: now.getDay(),
-      dateStr: now.toISOString().split("T")[0],
+      dateStr: formatDateLocal(now),
     };
 
     const created: string[] = [];

@@ -19,8 +19,7 @@ export interface CockpitBoardSettings {
   cardOpenMode: "split" | "sidebar" | "modal";
   mobileDefaultColumn: string;
   labelColors: Record<string, string>;
-  adjustDateOnMove: boolean;
-  setTodayOnMove: boolean;
+  clearDateOnInProgress: boolean;
   pomodoroEnabled: boolean;
   pomodoroWork: number;
   pomodoroShortBreak: number;
