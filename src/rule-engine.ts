@@ -57,23 +57,23 @@ export function getDropUpdates(col: ColumnConfig, currentCard: Partial<CardData>
     }
   } else if (rule.includes("date:today")) {
     updates.status = "scheduled";
-    if (forceDate) {
-      updates.due = todayStr();
-    }
+    // Always set today so the card stays in the Today column
+    updates.due = todayStr();
   } else if (rule.includes("date:tomorrow")) {
     updates.status = "scheduled";
-    if (forceDate) {
-      updates.due = formatDateLocal(getTomorrow());
-    }
+    // Always set tomorrow so the card stays in the Soon column
+    updates.due = formatDateLocal(getTomorrow());
   } else if (rule.includes("date:future")) {
     updates.status = "scheduled";
-    if (forceDate && currentCard.due) {
+    // Keep existing future date; if date is past/today/tomorrow (or Ctrl held), push forward
+    if (currentCard.due) {
       const d = parseDate(currentCard.due);
       if (d && d <= getTomorrow()) {
         const future = new Date(getTomorrow());
         future.setDate(future.getDate() + 1);
         updates.due = formatDateLocal(future);
       }
+      // else: existing date is already in the future, keep it
     }
   } else if (rule.includes("no-date")) {
     updates.status = "";

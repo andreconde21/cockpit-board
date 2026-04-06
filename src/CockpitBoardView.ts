@@ -481,9 +481,9 @@ export class CockpitBoardView extends ItemView {
     if (card.column === targetCol.id) return;
     const updates = getDropUpdates(targetCol, card, this.settings, forceDate);
 
-    // When Ctrl+drag to Scheduled and card has no date, infer from neighbor/column
+    // If a date column drop didn't set a date (e.g. Scheduled with no existing date), infer one
     const isDateCol = targetCol.rule === "date:future" || targetCol.rule === "date:today" || targetCol.rule === "date:tomorrow";
-    if (forceDate && isDateCol && !("due" in updates) && !card.due) {
+    if (isDateCol && !("due" in updates)) {
       if (neighborCard?.due) {
         updates.due = neighborCard.due;
       } else {
@@ -534,7 +534,6 @@ export class CockpitBoardView extends ItemView {
     if ("due" in updates) setField("due", updates.due);
     if ("time" in updates) setField("time", updates.time);
     if ("completed" in updates) setField("completed", updates.completed);
-    setField("order", "0");
 
     if (updates._addLabel) {
       const labelsMatch = fm.match(/^labels:\s*\[(.*)\]$/m);
