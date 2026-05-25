@@ -66,9 +66,9 @@ export function getDropUpdates(col: ColumnConfig, currentCard: Partial<CardData>
   } else if (rule.includes("date:future")) {
     updates.status = "scheduled";
     // Keep existing future date; if date is past/today/tomorrow (or Ctrl held), push forward
-    if (currentCard.due) {
-      const d = parseDate(currentCard.due);
-      if (d && d <= getTomorrow()) {
+    if (forceDate || currentCard.due) {
+      const d = currentCard.due ? parseDate(currentCard.due) : null;
+      if (forceDate || (d && d <= getTomorrow())) {
         const future = new Date(getTomorrow());
         future.setDate(future.getDate() + 1);
         updates.due = formatDateLocal(future);

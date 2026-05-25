@@ -1,5 +1,5 @@
 import { Plugin, TFile } from "obsidian";
-import type { CockpitBoardSettings, TimerData, PomodoroSession } from "./types";
+import type { CardFrontmatter, CockpitBoardSettings, TimerData, PomodoroSession } from "./types";
 import { VIEW_TYPE, DEFAULT_SETTINGS, DEFAULT_COLUMNS } from "./constants";
 import { CockpitBoardView } from "./CockpitBoardView";
 import { CockpitBoardSettingTab } from "./CockpitBoardSettingTab";
@@ -74,7 +74,7 @@ export default class CockpitBoardPlugin extends Plugin {
     this.registerInterval(window.setInterval(() => {
       for (const [path, timer] of this.activeTimers) {
         const elapsed = Math.floor((Date.now() - timer.startTime) / 60000) + timer.previousMinutes;
-        const el = document.querySelector(`.cockpit-card[data-path="${CSS.escape(path)}"] .cockpit-timer-display`);
+        const el = activeDocument.querySelector(`.cockpit-card[data-path="${CSS.escape(path)}"] .cockpit-timer-display`);
         if (el) {
           const h = Math.floor(elapsed / 60);
           const m = elapsed % 60;
@@ -115,7 +115,7 @@ export default class CockpitBoardPlugin extends Plugin {
       const elapsed = Math.floor((Date.now() - timer.startTime) / 60000) + timer.previousMinutes;
       const file = this.app.vault.getAbstractFileByPath(path);
       if (file instanceof TFile) {
-        void this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => { fm.time_spent = elapsed; });
+        void this.app.fileManager.processFrontMatter(file, (fm: CardFrontmatter) => { fm.time_spent = elapsed; });
       }
     }
     this.activeTimers.clear();
@@ -131,7 +131,7 @@ export default class CockpitBoardPlugin extends Plugin {
       this.activeTimers.delete(cardPath);
       const file = this.app.vault.getAbstractFileByPath(cardPath);
       if (file instanceof TFile) {
-        void this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => { fm.time_spent = elapsed; });
+        void this.app.fileManager.processFrontMatter(file, (fm: CardFrontmatter) => { fm.time_spent = elapsed; });
       }
     }
     this.pomodoro.start(cardPath);
@@ -146,7 +146,7 @@ export default class CockpitBoardPlugin extends Plugin {
   private async onPomodoroWorkComplete(session: PomodoroSession): Promise<void> {
     const file = this.app.vault.getAbstractFileByPath(session.cardPath);
     if (file instanceof TFile) {
-      await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+      await this.app.fileManager.processFrontMatter(file, (fm: CardFrontmatter) => {
         fm.pomodoros = (typeof fm.pomodoros === "number" ? fm.pomodoros : 0) + 1;
         fm.time_spent = (typeof fm.time_spent === "number" ? fm.time_spent : 0) + this.settings.pomodoroWork;
       });

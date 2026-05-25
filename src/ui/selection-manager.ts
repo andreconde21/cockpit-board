@@ -1,5 +1,5 @@
-import { Menu, App } from "obsidian";
-import type { CardData, ColumnConfig, CockpitBoardSettings } from "../types";
+import { Menu, App, TFile } from "obsidian";
+import type { CardData, CardFrontmatter, ColumnConfig, CockpitBoardSettings } from "../types";
 import { ConfirmModal } from "./confirm-modal";
 import { todayStr, getToday, getTomorrow, formatDateLocal } from "./dom-helpers";
 
@@ -13,16 +13,11 @@ export interface SelectionContext {
   pauseRefresh: boolean;
   _bulkOperating: boolean;
   handleDrop(card: CardData, col: ColumnConfig): Promise<void>;
-  updateCardProperty(file: unknown, props: Record<string, unknown>): Promise<void>;
+  updateCardProperty(file: TFile, props: CardFrontmatter): Promise<void>;
   toast(msg: string): void;
   render(): Promise<void>;
   promptDateTime(card: CardData): void;
-  app: {
-    fileManager: {
-      trashFile(file: unknown): Promise<void>;
-      processFrontMatter(file: unknown, fn: (fm: Record<string, unknown>) => void): Promise<void>;
-    };
-  };
+  app: App;
 }
 
 export function toggleSelectCard(card: CardData, el: HTMLElement, ctx: SelectionContext): void {
@@ -90,7 +85,7 @@ export function updateSelectionBar(ctx: SelectionContext): void {
     btn.addEventListener("click", () => void bulkMoveTo(col, ctx));
   }
 
-  bar.createEl("span", { text: "|", cls: "cockpit-selection-sep" });
+  bar.createSpan({ text: "|", cls: "cockpit-selection-sep" });
 
   const addLabelBtn = bar.createEl("button", { text: "+ label", cls: "cockpit-selection-btn" });
   addLabelBtn.addEventListener("click", (e) => {
@@ -195,9 +190,9 @@ async function bulkAddLabel(label: string, ctx: SelectionContext): Promise<void>
   ctx.pauseRefresh = true;
   try {
     for (const { card } of ctx.selectedCards.values()) {
-      await ctx.app.fileManager.processFrontMatter(card.file, (fm) => {
+      await ctx.app.fileManager.processFrontMatter(card.file, (fm: CardFrontmatter) => {
         const labels = Array.isArray(fm.labels) ? fm.labels : [];
-        if (!(labels as string[]).includes(label)) fm.labels = [...labels as string[], label];
+        if (!labels.includes(label)) fm.labels = [...labels, label];
       });
     }
   } finally {
@@ -211,8 +206,8 @@ async function bulkRemoveLabel(label: string, ctx: SelectionContext): Promise<vo
   ctx.pauseRefresh = true;
   try {
     for (const { card } of ctx.selectedCards.values()) {
-      await ctx.app.fileManager.processFrontMatter(card.file, (fm) => {
-        fm.labels = (Array.isArray(fm.labels) ? fm.labels : []).filter((l: unknown) => l !== label);
+      await ctx.app.fileManager.processFrontMatter(card.file, (fm: CardFrontmatter) => {
+        fm.labels = (Array.isArray(fm.labels) ? fm.labels : []).filter((l) => l !== label);
       });
     }
   } finally {
@@ -263,7 +258,7 @@ async function bulkMarkDone(ctx: SelectionContext): Promise<void> {
   ctx.pauseRefresh = true;
   try {
     for (const { card } of ctx.selectedCards.values()) {
-      await ctx.app.fileManager.processFrontMatter(card.file, (fm) => {
+      await ctx.app.fileManager.processFrontMatter(card.file, (fm: CardFrontmatter) => {
         fm.status = "done";
         fm.completed = todayStr();
       });
@@ -276,7 +271,7 @@ async function bulkMarkDone(ctx: SelectionContext): Promise<void> {
 }
 
 function bulkDelete(ctx: SelectionContext): void {
-  new ConfirmModal(ctx.app as unknown as App, `Delete ${ctx.selectedCards.size} card(s)?`, () => {
+  new ConfirmModal(ctx.app, `Delete ${ctx.selectedCards.size} card(s)?`, () => {
     void (async () => {
       ctx.pauseRefresh = true;
       try {

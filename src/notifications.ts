@@ -1,14 +1,11 @@
-import { TFile, TFolder, Notice } from "obsidian";
+import { App, TFile, TFolder, Notice } from "obsidian";
 import type { CockpitBoardSettings } from "./types";
 import { fmStr, formatDateLocal } from "./ui/dom-helpers.js";
 
 export function scheduleNotifications(
   settings: CockpitBoardSettings,
   notifiedToday: Set<string>,
-  app: {
-    vault: { getAbstractFileByPath(path: string): unknown };
-    metadataCache: { getFileCache(file: TFile): { frontmatter?: Record<string, unknown> } | null };
-  },
+  app: App,
 ): void {
   if (!settings.folder) return;
   const folder = app.vault.getAbstractFileByPath(settings.folder);

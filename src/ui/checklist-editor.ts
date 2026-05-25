@@ -64,10 +64,10 @@ export class ChecklistEditorModal extends Modal {
     const { contentEl } = this;
     contentEl.empty();
 
-    let saveTimer: ReturnType<typeof setTimeout> | null = null;
+    let saveTimer: number | null = null;
     const autoSave = () => {
-      if (saveTimer) clearTimeout(saveTimer);
-      saveTimer = setTimeout(() => void this.saveChecklists(), 500);
+      if (saveTimer) activeWindow.clearTimeout(saveTimer);
+      saveTimer = activeWindow.setTimeout(() => void this.saveChecklists(), 500);
     };
 
     // Global sort button

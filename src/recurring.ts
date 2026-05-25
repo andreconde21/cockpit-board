@@ -1,4 +1,4 @@
-import { TFile, Notice } from "obsidian";
+import { App, TFile, TFolder, Notice } from "obsidian";
 import type { CockpitBoardSettings, RecurringConfig } from "./types";
 import { formatDateLocal } from "./ui/dom-helpers.js";
 
@@ -30,14 +30,7 @@ export function matchesCron(cron: string, today: TodayInfo): boolean {
 export async function checkRecurring(
   settings: CockpitBoardSettings,
   dismissed: Record<string, string>,
-  app: {
-    vault: {
-      getAbstractFileByPath(path: string): unknown;
-      read(file: TFile): Promise<string>;
-      create(path: string, content: string): Promise<TFile>;
-    };
-    metadataCache: { getFileCache(file: TFile): { frontmatter?: Record<string, unknown> } | null };
-  },
+  app: App,
 ): Promise<string[]> {
   if (!settings.recurringConfigPath) return [];
 
@@ -106,14 +99,11 @@ function taskExistsForToday(
   slug: string,
   dateStr: string,
   folder: string,
-  app: {
-    vault: { getAbstractFileByPath(path: string): unknown };
-    metadataCache: { getFileCache(file: TFile): { frontmatter?: Record<string, unknown> } | null };
-  },
+  app: App,
 ): boolean {
-  const folderObj = app.vault.getAbstractFileByPath(folder) as { children?: unknown[] } | null;
-  if (!folderObj) return false;
-  for (const child of folderObj.children || []) {
+  const folderObj = app.vault.getAbstractFileByPath(folder);
+  if (!(folderObj instanceof TFolder)) return false;
+  for (const child of folderObj.children) {
     if (!(child instanceof TFile)) continue;
     if (child.name.startsWith(slug) && child.extension === "md") {
       const cache = app.metadataCache.getFileCache(child);

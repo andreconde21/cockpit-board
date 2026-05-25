@@ -1,5 +1,5 @@
 import { TFile } from "obsidian";
-import type { CardData, ColumnConfig } from "./types";
+import type { CardData, CardFrontmatter, ColumnConfig } from "./types";
 import { resolveColumn } from "./rule-engine";
 import { fmStr } from "./ui/dom-helpers.js";
 
@@ -22,7 +22,7 @@ export class CockpitCard implements CardData {
   hasDesc: boolean;
   column: string;
 
-  constructor(file: TFile, fm: Record<string, unknown>, content: string, columns: ColumnConfig[]) {
+  constructor(file: TFile, fm: CardFrontmatter, content: string, columns: ColumnConfig[]) {
     this.file = file;
     this.rawStatus = fmStr(fm.status).trim().toLowerCase();
     this.title = fmStr(fm.title) || file.basename;
@@ -34,7 +34,7 @@ export class CockpitCard implements CardData {
     this.timeSpent = fm.time_spent ? Number(fm.time_spent) : 0;
     this.pomodoros = fm.pomodoros ? Number(fm.pomodoros) : 0;
     this.source = fmStr(fm.source);
-    this.labels = Array.isArray(fm.labels) ? (fm.labels as string[]).filter(Boolean) : [];
+    this.labels = Array.isArray(fm.labels) ? fm.labels.filter(Boolean) : [];
     const orderMatch = content.match(/^order:\s*(\d+)/m);
     this.order = orderMatch ? Number(orderMatch[1]) : (fm.order != null ? Number(fm.order) : null);
     this.checkedCount = (content.match(/^- \[x\]/gm) || []).length;

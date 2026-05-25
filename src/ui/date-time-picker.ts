@@ -1,13 +1,13 @@
-import { App, Modal, Notice } from "obsidian";
-import type { CardData } from "../types";
+import { App, Modal, Notice, TFile } from "obsidian";
+import type { CardData, CardFrontmatter } from "../types";
 import { todayStr } from "./dom-helpers";
 
 export class DateTimePickerModal extends Modal {
   private card: CardData;
-  private onSave: (file: unknown, props: Record<string, unknown>) => Promise<void>;
+  private onSave: (file: TFile, props: CardFrontmatter) => Promise<void>;
   private onDone: () => void;
 
-  constructor(app: App, card: CardData, onSave: (file: unknown, props: Record<string, unknown>) => Promise<void>, onDone: () => void) {
+  constructor(app: App, card: CardData, onSave: (file: TFile, props: CardFrontmatter) => Promise<void>, onDone: () => void) {
     super(app);
     this.card = card;
     this.onSave = onSave;
@@ -30,14 +30,14 @@ export class DateTimePickerModal extends Modal {
     const saveBtn = this.contentEl.createEl("button", { text: "Save", cls: "mod-cta cockpit-dt-save-btn" });
     saveBtn.addEventListener("click", () => {
       void (async () => {
-        const updates: Record<string, unknown> = {
+        const updates: CardFrontmatter = {
           due: dateInput.value || "",
           time: timeInput.value || "",
           due_end: endDateInput.value || "",
         };
         if (updates.due) updates.status = "scheduled";
         await this.onSave(this.card.file, updates);
-        new Notice(`Date set: ${String(updates.due)}${updates.time ? " " + String(updates.time) : ""}`);
+        new Notice(`Date set: ${updates.due ?? ""}${updates.time ? " " + updates.time : ""}`);
         this.close();
         this.onDone();
       })();
@@ -49,9 +49,9 @@ export class DateTimePickerModal extends Modal {
 
 export class BulkDateTimePickerModal extends Modal {
   private count: number;
-  private onApply: (updates: Record<string, unknown>) => Promise<void>;
+  private onApply: (updates: CardFrontmatter) => Promise<void>;
 
-  constructor(app: App, count: number, onApply: (updates: Record<string, unknown>) => Promise<void>) {
+  constructor(app: App, count: number, onApply: (updates: CardFrontmatter) => Promise<void>) {
     super(app);
     this.count = count;
     this.onApply = onApply;
@@ -71,7 +71,7 @@ export class BulkDateTimePickerModal extends Modal {
     const saveBtn = this.contentEl.createEl("button", { text: "Apply to all", cls: "mod-cta cockpit-dt-save-btn" });
     saveBtn.addEventListener("click", () => {
       void (async () => {
-        const updates: Record<string, unknown> = {
+        const updates: CardFrontmatter = {
           due: dateInput.value || "",
           time: timeInput.value || "",
           due_end: endDateInput.value || "",

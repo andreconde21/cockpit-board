@@ -1,5 +1,21 @@
 import { TFile } from "obsidian";
 
+export interface CardFrontmatter {
+  status?: string;
+  due?: string;
+  time?: string;
+  due_end?: string;
+  completed?: string;
+  time_spent?: number;
+  pomodoros?: number;
+  order?: number | null;
+  labels?: string[];
+  project?: string;
+  title?: string;
+  source?: string;
+  [key: string]: unknown;
+}
+
 export interface ColumnConfig {
   id: string;
   label: string;

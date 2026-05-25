@@ -1,13 +1,10 @@
-import { TFile, TFolder } from "obsidian";
+import { App, TFile, TFolder } from "obsidian";
 import type { ArchiveResult, CalendarCardData, CockpitBoardSettings } from "../types";
 import { fmStr, formatDateLocal } from "../ui/dom-helpers.js";
 
 export interface ArchiveContext {
   settings: CockpitBoardSettings;
-  app: {
-    vault: { getAbstractFileByPath(path: string): unknown };
-    metadataCache: { getFileCache(file: TFile): { frontmatter?: Record<string, unknown> } | null };
-  };
+  app: App;
   openCard(card: { file: TFile; displayTitle: string }): void;
 }
 
@@ -62,7 +59,7 @@ export function renderArchiveSearch(contentEl: HTMLElement, ctx: ArchiveContext)
 
   let allResults: ArchiveResult[] = [];
   let displayCount = 50;
-  let searchTimer: ReturnType<typeof setTimeout> | null = null;
+  let searchTimer: number | null = null;
 
   const doSearch = () => {
     resultsEl.empty();
@@ -117,8 +114,8 @@ export function renderArchiveSearch(contentEl: HTMLElement, ctx: ArchiveContext)
   fromInput.addEventListener("change", doSearch);
   toInput.addEventListener("change", doSearch);
   searchInput.addEventListener("input", () => {
-    if (searchTimer) clearTimeout(searchTimer);
-    searchTimer = setTimeout(doSearch, 300);
+    if (searchTimer) activeWindow.clearTimeout(searchTimer);
+    searchTimer = activeWindow.setTimeout(doSearch, 300);
   });
 
   doSearch();

@@ -24,7 +24,7 @@ function showYearTooltip(
   if (tasks.length > 10) {
     tip.createDiv({ cls: "cockpit-cal-year-tooltip-item", text: `... +${tasks.length - 10} more` });
   }
-  document.body.appendChild(tip);
+  activeDocument.body.appendChild(tip);
   const rect = (e.target as HTMLElement).getBoundingClientRect();
   tip.style.left = `${rect.right + 8}px`;
   tip.style.top = `${rect.top}px`;
