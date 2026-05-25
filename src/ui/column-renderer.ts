@@ -114,7 +114,7 @@ export function createColumn(col: ColumnConfig, cards: CardData[], overdueCount:
         void ctx.persistColumnOrder(col.id);
       } else {
         void (async () => {
-          await ctx.handleDrop(ctx.draggedCard!, col, undefined, ctrlDrag);
+          await ctx.handleDrop(ctx.draggedCard!, col, undefined, ctrlDrag, true);
           await ctx.persistColumnOrder(col.id);
           void ctx.render();
         })();

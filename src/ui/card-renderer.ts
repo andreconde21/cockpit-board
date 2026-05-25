@@ -1,6 +1,6 @@
-import { Menu } from "obsidian";
+import { App, Menu, TFile } from "obsidian";
 import { ConfirmModal } from "./confirm-modal";
-import type { CardData, ColumnConfig, CockpitBoardSettings, TimerData } from "../types";
+import type { CardData, CardFrontmatter, ColumnConfig, CockpitBoardSettings, TimerData } from "../types";
 import { getToday, getTomorrow, datePillClass, formatDueDisplay, getLabelColor, formatDateLocal } from "./dom-helpers";
 
 export interface CardRendererContext {
@@ -22,10 +22,10 @@ export interface CardRendererContext {
   selectRange(card: CardData, el: HTMLElement): void;
   clearSelection(): void;
   showBulkMenu(e: MouseEvent): void;
-  handleDrop(card: CardData, col: ColumnConfig, neighbor?: CardData, forceDate?: boolean): Promise<void>;
+  handleDrop(card: CardData, col: ColumnConfig, neighbor?: CardData, forceDate?: boolean, skipRender?: boolean): Promise<void>;
   isCtrlHeld(): boolean;
   persistColumnOrder(colId: string): Promise<void>;
-  updateCardProperty(file: unknown, props: Record<string, unknown>): Promise<void>;
+  updateCardProperty(file: TFile, props: CardFrontmatter): Promise<void>;
   duplicateCard(card: CardData): Promise<void>;
   splitAndCloseCard(card: CardData): Promise<void>;
   toast(msg: string): void;
@@ -34,13 +34,7 @@ export interface CardRendererContext {
   stopPomodoro(): void;
   isPomodoroActive(cardPath: string): boolean;
   getPomodoroTimeRemaining(): string;
-  app: {
-    workspace: { getLeaf(type: string): { openFile(file: unknown): Promise<void> } };
-    fileManager: {
-      processFrontMatter(file: unknown, fn: (fm: Record<string, unknown>) => void): Promise<void>;
-      trashFile(file: unknown): Promise<void>;
-    };
-  };
+  app: App;
 }
 
 export function createCard(card: CardData, ctx: CardRendererContext): HTMLElement {
@@ -264,9 +258,9 @@ function showCardContextMenu(e: MouseEvent, card: CardData, ctx: CardRendererCon
     if (card.labels.includes(label)) continue;
     menu.addItem((i) => i.setTitle(`+ ${label}`).setIcon("tag")
       .onClick(() => {
-        void ctx.app.fileManager.processFrontMatter(card.file, (fm) => {
+        void ctx.app.fileManager.processFrontMatter(card.file, (fm: CardFrontmatter) => {
           const labels = Array.isArray(fm.labels) ? fm.labels : [];
-          fm.labels = [...labels as string[], label];
+          fm.labels = [...labels, label];
         });
       }));
   }
@@ -275,8 +269,8 @@ function showCardContextMenu(e: MouseEvent, card: CardData, ctx: CardRendererCon
     for (const label of card.labels) {
       menu.addItem((i) => i.setTitle(`- ${label}`).setIcon("x")
         .onClick(() => {
-          void ctx.app.fileManager.processFrontMatter(card.file, (fm) => {
-            fm.labels = (Array.isArray(fm.labels) ? fm.labels : []).filter((l: unknown) => l !== label);
+          void ctx.app.fileManager.processFrontMatter(card.file, (fm: CardFrontmatter) => {
+            fm.labels = (Array.isArray(fm.labels) ? fm.labels : []).filter((l) => l !== label);
           });
         }));
     }
@@ -366,7 +360,7 @@ function showCardContextMenu(e: MouseEvent, card: CardData, ctx: CardRendererCon
   }
   menu.addItem((i) => i.setTitle("Delete card").setIcon("trash").setWarning(true)
     .onClick(() => {
-      new ConfirmModal(ctx.app as unknown as import("obsidian").App, `Delete "${card.displayTitle}"?`, () => {
+      new ConfirmModal(ctx.app, `Delete "${card.displayTitle}"?`, () => {
         void ctx.app.fileManager.trashFile(card.file);
       }).open();
     }));
@@ -375,22 +369,22 @@ function showCardContextMenu(e: MouseEvent, card: CardData, ctx: CardRendererCon
 }
 
 function attachLongPress(el: HTMLElement): void {
-  let lpTimer: ReturnType<typeof setTimeout> | null = null;
+  let lpTimer: number | null = null;
   let lpMoved = false;
   el.addEventListener("touchstart", (e) => {
     lpMoved = false;
     const touch = e.touches[0];
-    lpTimer = setTimeout(() => {
+    lpTimer = activeWindow.setTimeout(() => {
       if (lpMoved) return;
       el.dispatchEvent(new MouseEvent("contextmenu", { clientX: touch.clientX, clientY: touch.clientY, bubbles: true }));
     }, 500);
   }, { passive: true });
   el.addEventListener("touchmove", () => {
     lpMoved = true;
-    if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
+    if (lpTimer) { activeWindow.clearTimeout(lpTimer); lpTimer = null; }
   }, { passive: true });
   el.addEventListener("touchend", () => {
-    if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
+    if (lpTimer) { activeWindow.clearTimeout(lpTimer); lpTimer = null; }
   }, { passive: true });
 }
 
@@ -405,7 +399,7 @@ function attachDragHandlers(el: HTMLElement, card: CardData, ctx: CardRendererCo
     ctx.draggedCard = null;
     ctx.draggedEl = null;
     el.classList.remove("cockpit-card-dragging");
-    document.querySelectorAll(".cockpit-column-dragover, .cockpit-card-dropzone").forEach(c =>
+    activeDocument.querySelectorAll(".cockpit-column-dragover, .cockpit-card-dropzone").forEach(c =>
       c.classList.remove("cockpit-column-dragover", "cockpit-card-dropzone")
     );
   });
@@ -455,8 +449,9 @@ function attachDragHandlers(el: HTMLElement, card: CardData, ctx: CardRendererCo
         void ctx.persistColumnOrder(targetColId!);
       } else if (targetCol) {
         void (async () => {
-          await ctx.handleDrop(ctx.draggedCard!, targetCol, card, ctrlDrag);
+          await ctx.handleDrop(ctx.draggedCard!, targetCol, card, ctrlDrag, true);
           await ctx.persistColumnOrder(targetColId!);
+          void ctx.render();
         })();
       }
     });

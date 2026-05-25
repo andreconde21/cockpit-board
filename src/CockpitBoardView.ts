@@ -3,7 +3,7 @@ import {
   MarkdownRenderer, Notice, Platform, setIcon,
 } from "obsidian";
 import { ConfirmModal } from "./ui/confirm-modal";
-import type { CardData, ColumnConfig, CalendarCardData, CockpitBoardSettings } from "./types";
+import type { CardData, CardFrontmatter, ColumnConfig, CalendarCardData, CockpitBoardSettings } from "./types";
 import { VIEW_TYPE } from "./constants";
 import { CockpitCard } from "./CockpitCard";
 import { getDropUpdates } from "./rule-engine";
@@ -24,7 +24,7 @@ export class CockpitBoardView extends ItemView {
   plugin: CockpitBoardPlugin;
   draggedCard: CardData | null = null;
   draggedEl: HTMLElement | null = null;
-  refreshTimer: ReturnType<typeof setTimeout> | null = null;
+  refreshTimer: number | null = null;
   focusMode = false;
   selectedCards = new Map<string, { card: CardData; el: HTMLElement }>();
   lastSelectedCard: { card: CardData; el: HTMLElement } | null = null;
@@ -39,7 +39,7 @@ export class CockpitBoardView extends ItemView {
   pauseRefresh = false;
   _bulkOperating = false;
   ctrlHeld = false;
-  private _archiveSearchTimer: ReturnType<typeof setTimeout> | null = null;
+  private _archiveSearchTimer: number | null = null;
 
   constructor(leaf: WorkspaceLeaf, plugin: CockpitBoardPlugin) {
     super(leaf);
@@ -78,8 +78,8 @@ export class CockpitBoardView extends ItemView {
     // Reset on window blur — but NOT during drag (drag can cause brief blur)
     this.registerDomEvent(window, "blur", () => {
       // Delay reset to avoid false reset during drag-and-drop
-      setTimeout(() => {
-        if (!document.hasFocus()) {
+      activeWindow.setTimeout(() => {
+        if (!activeDocument.hasFocus()) {
           this.ctrlHeld = false;
           this.hideCtrlBar();
         }
@@ -131,20 +131,20 @@ export class CockpitBoardView extends ItemView {
 
   debouncedRefresh(): void {
     if (this.pauseRefresh) return;
-    if (this.refreshTimer) clearTimeout(this.refreshTimer);
-    this.refreshTimer = setTimeout(() => { void this.render(); }, 500);
+    if (this.refreshTimer) activeWindow.clearTimeout(this.refreshTimer);
+    this.refreshTimer = activeWindow.setTimeout(() => { void this.render(); }, 500);
   }
 
   async loadCards(): Promise<CardData[]> {
     if (!this.settings.folder) return [];
     const folder = this.app.vault.getAbstractFileByPath(this.settings.folder);
     if (!folder || !(folder instanceof TFolder)) return [];
-    const raw: { file: TFile; fm: Record<string, unknown> }[] = [];
+    const raw: { file: TFile; fm: CardFrontmatter }[] = [];
     const walk = (f: TFolder) => {
       for (const child of f.children) {
         if (child instanceof TFile && child.extension === "md") {
           const cache = this.app.metadataCache.getFileCache(child);
-          raw.push({ file: child, fm: cache?.frontmatter || {} });
+          raw.push({ file: child, fm: (cache?.frontmatter as CardFrontmatter) || {} });
         } else if (child instanceof TFolder) walk(child);
       }
     };
@@ -352,7 +352,7 @@ export class CockpitBoardView extends ItemView {
       });
     }
 
-    setTimeout(() => {
+    activeWindow.setTimeout(() => {
       const board = contentEl.querySelector(".cockpit-board");
       if (board) board.scrollLeft = boardScrollLeft;
       contentEl.querySelectorAll(".cockpit-column-cards").forEach(col => {
@@ -388,7 +388,7 @@ export class CockpitBoardView extends ItemView {
       });
     });
 
-    setTimeout(() => {
+    activeWindow.setTimeout(() => {
       const activeTab = tabs.children[this.activeColumnIndex] as HTMLElement;
       if (activeTab) activeTab.scrollIntoView({ inline: "center", block: "nearest" });
     }, 50);
@@ -477,7 +477,7 @@ export class CockpitBoardView extends ItemView {
   showBulkMenu(e: MouseEvent): void { showBulkMenu(e, this.getSelectionContext()); }
 
   // ── Actions ──
-  async handleDrop(card: CardData, targetCol: ColumnConfig, neighborCard?: CardData, forceDate = false): Promise<void> {
+  async handleDrop(card: CardData, targetCol: ColumnConfig, neighborCard?: CardData, forceDate = false, skipRender = false): Promise<void> {
     if (card.column === targetCol.id) return;
     const updates = getDropUpdates(targetCol, card, this.settings, forceDate);
 
@@ -504,8 +504,8 @@ export class CockpitBoardView extends ItemView {
       const newContent = this.applyFrontmatterUpdates(content, updates);
       await this.app.vault.modify(card.file, newContent);
       // Wait for metadata cache to pick up the file change
-      await new Promise(r => setTimeout(r, 200));
-      if (!this._bulkOperating) {
+      await new Promise(r => activeWindow.setTimeout(r, 200));
+      if (!this._bulkOperating && !skipRender) {
         this.toast(`Moved to ${targetCol.label || targetCol.id}`);
         void this.render();
       }
@@ -561,7 +561,7 @@ export class CockpitBoardView extends ItemView {
     this.pauseRefresh = true;
     try {
       // Delay to let Obsidian's file cache catch up after vault.modify writes
-      await new Promise(r => setTimeout(r, 300));
+      await new Promise(r => activeWindow.setTimeout(r, 300));
       const colEl = this.containerEl.querySelector(`.cockpit-column[data-column-id="${colId}"]`);
       if (!colEl) return;
       const cardEls = Array.from(colEl.querySelectorAll(".cockpit-card[data-path]"));
@@ -570,12 +570,12 @@ export class CockpitBoardView extends ItemView {
         const path = (cardEl as HTMLElement).dataset.path;
         const file = this.app.vault.getAbstractFileByPath(path || "");
         if (file instanceof TFile) {
-          await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => { fm.order = order; });
+          await this.app.fileManager.processFrontMatter(file, (fm: CardFrontmatter) => { fm.order = order; });
           order++;
         }
       }
     } finally {
-      setTimeout(() => { this.pauseRefresh = false; }, 2000);
+      activeWindow.setTimeout(() => { this.pauseRefresh = false; }, 2000);
     }
   }
 
@@ -586,7 +586,7 @@ export class CockpitBoardView extends ItemView {
       cards.sort(sortFn);
       let order = 1;
       for (const card of cards) {
-        await this.app.fileManager.processFrontMatter(card.file, (fm: Record<string, unknown>) => { fm.order = order; });
+        await this.app.fileManager.processFrontMatter(card.file, (fm: CardFrontmatter) => { fm.order = order; });
         order++;
       }
     } finally {
@@ -601,7 +601,7 @@ export class CockpitBoardView extends ItemView {
       const cards = (await this.loadCards()).filter(c => c.column === colId);
       for (const card of cards) {
         if (card.order != null) {
-          await this.app.fileManager.processFrontMatter(card.file, (fm: Record<string, unknown>) => { delete fm.order; });
+          await this.app.fileManager.processFrontMatter(card.file, (fm: CardFrontmatter) => { delete fm.order; });
         }
       }
     } finally {
@@ -649,10 +649,9 @@ export class CockpitBoardView extends ItemView {
     ).open();
   }
 
-  async updateCardProperty(file: unknown, props: Record<string, unknown>): Promise<void> {
+  async updateCardProperty(file: TFile, props: CardFrontmatter): Promise<void> {
     try {
-      if (!(file instanceof TFile)) return;
-      await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+      await this.app.fileManager.processFrontMatter(file, (fm: CardFrontmatter) => {
         for (const [k, v] of Object.entries(props)) fm[k] = v;
       });
     } catch { new Notice("Error updating card"); }
@@ -667,7 +666,7 @@ export class CockpitBoardView extends ItemView {
       while (this.app.vault.getAbstractFileByPath(path)) { path = base + `-copy-${i}.md`; i++; }
       const newFile = await this.app.vault.create(path, content);
       // Reset status/completed but preserve everything else (labels, project, etc.)
-      await this.app.fileManager.processFrontMatter(newFile, (fm: Record<string, unknown>) => {
+      await this.app.fileManager.processFrontMatter(newFile, (fm: CardFrontmatter) => {
         fm.status = "scheduled";
         fm.completed = "";
         delete fm.order;
@@ -712,7 +711,7 @@ export class CockpitBoardView extends ItemView {
       }
 
       // Mark original as done
-      await this.app.fileManager.processFrontMatter(card.file, (fm: Record<string, unknown>) => {
+      await this.app.fileManager.processFrontMatter(card.file, (fm: CardFrontmatter) => {
         fm.status = "done";
         fm.completed = todayStr();
         fm.order = 0;
@@ -729,7 +728,7 @@ export class CockpitBoardView extends ItemView {
       while (this.app.vault.getAbstractFileByPath(path)) { path = base + `-cont-${n}.md`; n++; }
       const newFile = await this.app.vault.create(path, newContent);
       // Reset status/completed but keep labels, project, etc.
-      await this.app.fileManager.processFrontMatter(newFile, (fm: Record<string, unknown>) => {
+      await this.app.fileManager.processFrontMatter(newFile, (fm: CardFrontmatter) => {
         fm.status = "pending";
         fm.completed = "";
         delete fm.order;
@@ -774,7 +773,7 @@ export class CockpitBoardView extends ItemView {
     this.pauseRefresh = true;
     try {
       for (const { card } of this.selectedCards.values()) {
-        await this.app.fileManager.processFrontMatter(card.file, (fm: Record<string, unknown>) => {
+        await this.app.fileManager.processFrontMatter(card.file, (fm: CardFrontmatter) => {
           fm.status = "done";
           fm.completed = todayStr();
         });
@@ -824,10 +823,10 @@ export class CockpitBoardView extends ItemView {
       selectRange: (card: CardData, el: HTMLElement) => this.selectRange(card, el),
       clearSelection: () => this.clearSelection(),
       showBulkMenu: (e: MouseEvent) => this.showBulkMenu(e),
-      handleDrop: (card: CardData, col: ColumnConfig, neighbor?: CardData, forceDate?: boolean) => this.handleDrop(card, col, neighbor, forceDate),
+      handleDrop: (card: CardData, col: ColumnConfig, neighbor?: CardData, forceDate?: boolean, skipRender?: boolean) => this.handleDrop(card, col, neighbor, forceDate, skipRender),
       isCtrlHeld: () => this.ctrlHeld,
       persistColumnOrder: (colId: string) => this.persistColumnOrder(colId),
-      updateCardProperty: (file: unknown, props: Record<string, unknown>) => this.updateCardProperty(file, props),
+      updateCardProperty: (file: TFile, props: CardFrontmatter) => this.updateCardProperty(file, props),
       duplicateCard: (card: CardData) => this.duplicateCard(card),
       splitAndCloseCard: (card: CardData) => this.splitAndCloseCard(card),
       toast: (msg: string) => this.toast(msg),
@@ -836,7 +835,7 @@ export class CockpitBoardView extends ItemView {
       stopPomodoro: () => this.plugin.stopPomodoro(),
       isPomodoroActive: (cardPath: string) => this.plugin.pomodoro.isActiveFor(cardPath),
       getPomodoroTimeRemaining: () => this.plugin.pomodoro.formatTimeRemaining(),
-      app: this.app as CardRendererContext["app"],
+      app: this.app,
       promptForTitle: (heading: string) => this.promptForTitle(heading),
       createCardInColumn: (title: string, col: ColumnConfig) => this.createCardInColumn(title, col),
       sortColumn: (colId: string, sortFn: (a: CardData, b: CardData) => number) => this.sortColumn(colId, sortFn),
@@ -860,7 +859,7 @@ export class CockpitBoardView extends ItemView {
       toast: (msg) => this.toast(msg),
       render: () => this.render(),
       promptDateTime: (card) => this.promptDateTime(card),
-      app: this.app as SelectionContext["app"],
+      app: this.app,
     };
   }
 
@@ -879,7 +878,7 @@ export class CockpitBoardView extends ItemView {
   private getArchiveContext(): ArchiveContext {
     return {
       settings: this.settings,
-      app: this.app as ArchiveContext["app"],
+      app: this.app,
       openCard: (card) => this.openCard(card as CardData),
     };
   }
