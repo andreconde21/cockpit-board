@@ -12,6 +12,8 @@
   flex-direction: column;
   height: 100%;
   padding: 0.5rem;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .cockpit-board-header {
@@ -69,10 +71,10 @@
   color: var(--text-normal);
 }
 
-.cockpit-filter-has-active {
-  background: var(--color-accent) !important;
-  color: #fff !important;
-  border-color: var(--color-accent) !important;
+.cockpit-search-wrap .cockpit-filter-dropdown-btn.cockpit-filter-has-active {
+  background: var(--color-accent);
+  color: #ffffff;
+  border-color: var(--color-accent);
 }
 
 /* ── Week separators ──────────────────────────────────────── */
@@ -144,9 +146,10 @@
   gap: 0.4rem;
 }
 
-.cockpit-column-dragover {
-  background: var(--background-modifier-hover) !important;
-  border-color: var(--color-accent) !important;
+.cockpit-board .cockpit-column.cockpit-column-dragover,
+body.is-mobile.is-mobile .cockpit-mobile-column-area .cockpit-column.cockpit-column-dragover {
+  background: var(--background-modifier-hover);
+  border-color: var(--color-accent);
 }
 
 /* ── Add card button ──────────────────────────────────────── */
@@ -188,14 +191,14 @@
   opacity: 0.4;
 }
 
-.cockpit-card-dropzone {
-  border-top: 2px solid var(--color-accent) !important;
+.cockpit-card.cockpit-card-dropzone {
+  border-top: 2px solid var(--color-accent);
 }
 
 /* ── Alternating day shading (Scheduled column) ───────────── */
 
-.cockpit-card-alt {
-  background: var(--background-secondary) !important;
+.cockpit-card.cockpit-card-alt {
+  background: var(--background-secondary);
 }
 
 /* ── Label bars (Trello-style) ────────────────────────────── */
@@ -252,12 +255,12 @@
 
 .cockpit-date-overdue {
   background: #EB5A46;
-  color: #fff;
+  color: #ffffff;
 }
 
 .cockpit-date-soon {
   background: #F2D600;
-  color: #333;
+  color: #333333;
 }
 
 .cockpit-date-future {
@@ -363,8 +366,8 @@
 
 /* ── Card selection ───────────────────────────────────────── */
 
-.cockpit-card-selected {
-  outline: 2px solid var(--color-accent) !important;
+.cockpit-card.cockpit-card-selected {
+  outline: 2px solid var(--color-accent);
   outline-offset: -1px;
   opacity: 0.9;
 }
@@ -411,13 +414,13 @@
 
 .cockpit-selection-done {
   background: #61BD4F;
-  color: #fff;
+  color: #ffffff;
   border-color: #61BD4F;
 }
 
 .cockpit-selection-delete {
   background: #EB5A46;
-  color: #fff;
+  color: #ffffff;
   border-color: #EB5A46;
 }
 
@@ -433,7 +436,7 @@
 .cockpit-overdue-badge {
   font-size: 0.6rem;
   background: #EB5A46;
-  color: #fff;
+  color: #ffffff;
   padding: 1px 6px;
   border-radius: 8px;
   font-weight: 600;
@@ -442,7 +445,7 @@
 /* ── Card label tint ──────────────────────────────────────── */
 
 .cockpit-card[style*="--card-tint"] {
-  background: var(--card-tint, var(--background-primary)) !important;
+  background: var(--card-tint, var(--background-primary));
 }
 
 /* ── Privacy mode ─────────────────────────────────────────── */
@@ -488,10 +491,10 @@
   background: var(--background-modifier-hover);
 }
 
-.cockpit-focus-active {
-  background: var(--color-accent) !important;
-  color: #fff !important;
-  border-color: var(--color-accent) !important;
+.cockpit-focus-btn.cockpit-focus-active {
+  background: var(--color-accent);
+  color: #ffffff;
+  border-color: var(--color-accent);
 }
 
 .cockpit-board-focus .cockpit-column {
@@ -511,13 +514,14 @@
 
 /* ── Checklist trigger (clickable) ────────────────────────── */
 
-.cockpit-cl-trigger {
-  cursor: pointer !important;
-  text-decoration: underline dotted;
+.cockpit-card .cockpit-cl-trigger {
+  cursor: pointer;
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
 }
 
-.cockpit-cl-trigger:hover {
-  color: var(--text-accent) !important;
+.cockpit-card .cockpit-cl-trigger:hover {
+  color: var(--text-accent);
 }
 
 /* ── Checklist editor modal ───────────────────────────────── */
@@ -672,8 +676,8 @@
   font-family: monospace;
 }
 
-.cockpit-timer-active {
-  color: #61BD4F !important;
+.cockpit-timer-display.cockpit-timer-active {
+  color: #61BD4F;
   font-weight: 600;
   animation: cockpit-timer-pulse 2s ease-in-out infinite;
 }
@@ -691,7 +695,7 @@
   left: 0;
   right: 0;
   background: var(--color-accent);
-  color: #fff;
+  color: #ffffff;
   text-align: center;
   padding: 6px 16px;
   font-size: 0.78rem;
@@ -702,8 +706,8 @@
 
 /* ── Pomodoro ─────────────────────────────────────────────── */
 
-.cockpit-pomodoro-display {
-  color: #EB5A46 !important;
+.cockpit-timer-display.cockpit-timer-active.cockpit-pomodoro-display {
+  color: #EB5A46;
 }
 
 .cockpit-pomodoro-count {
@@ -792,10 +796,10 @@
   background: var(--background-modifier-hover);
 }
 
-.cockpit-archive-active {
-  background: var(--color-accent) !important;
-  color: #fff !important;
-  border-color: var(--color-accent) !important;
+.cockpit-archive-btn.cockpit-archive-active {
+  background: var(--color-accent);
+  color: #ffffff;
+  border-color: var(--color-accent);
 }
 
 .cockpit-archive-count {
@@ -836,14 +840,14 @@
   background: var(--background-modifier-hover);
 }
 
-.cockpit-archive-link {
-  color: var(--text-normal) !important;
+.cockpit-archive-table .cockpit-archive-link {
+  color: var(--text-normal);
   cursor: pointer;
-  text-decoration: none !important;
+  text-decoration-line: none;
 }
 
-.cockpit-archive-link:hover {
-  color: var(--text-accent) !important;
+.cockpit-archive-table .cockpit-archive-link:hover {
+  color: var(--text-accent);
 }
 
 .cockpit-archive-load-more {
@@ -870,6 +874,7 @@
   gap: 6px;
   padding: 8px;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .cockpit-cal-mode-btn {
@@ -884,7 +889,7 @@
 
 .cockpit-cal-mode-btn.active {
   background: var(--color-accent);
-  color: #fff;
+  color: #ffffff;
   border-color: var(--color-accent);
 }
 
@@ -914,6 +919,9 @@
   border-bottom: 2px solid var(--background-modifier-border);
   padding-bottom: 4px;
   margin-bottom: 2px;
+  flex-shrink: 0;
+  max-height: 120px;
+  overflow-y: auto;
 }
 
 .cockpit-cal-allday-col {
@@ -921,9 +929,10 @@
   min-height: 28px;
 }
 
-.cockpit-cal-timegrid {
+.cockpit-board-content .cockpit-cal-timegrid {
   flex: 1;
   overflow-y: auto;
+  height: calc(100vh - 180px);
 }
 
 .cockpit-cal-timerow {
@@ -978,8 +987,8 @@
   color: var(--text-muted);
 }
 
-.cockpit-cal-today {
-  border-bottom: 2px solid var(--color-accent) !important;
+.cockpit-cal-today.cockpit-cal-today {
+  border-bottom: 2px solid var(--color-accent);
 }
 
 .cockpit-cal-today .cockpit-cal-day-header {
@@ -1012,7 +1021,7 @@
 }
 
 /* Month view */
-.cockpit-cal-month {
+.cockpit-board-content .cockpit-cal-month {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   grid-template-rows: auto repeat(6, 1fr);
@@ -1020,6 +1029,7 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  height: calc(100vh - 140px);
 }
 
 .cockpit-cal-month-header {
@@ -1078,15 +1088,11 @@
 /* Year view */
 .cockpit-cal-year {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
   padding: 8px;
   flex: 1;
   overflow-y: auto;
-}
-
-.cockpit-cal-year {
-  grid-template-columns: repeat(3, 1fr);
 }
 
 .cockpit-cal-year-month {
@@ -1111,7 +1117,7 @@
 .cockpit-cal-year-day {
   width: 100%;
   aspect-ratio: 1;
-  min-width: 14px;
+  min-width: 18px;
   border-radius: 3px;
   background: var(--background-primary);
   cursor: pointer;
@@ -1129,9 +1135,9 @@
 }
 
 .cockpit-cal-year-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
   flex-shrink: 0;
   transition: transform 0.1s;
 }
@@ -1139,11 +1145,11 @@
 .cockpit-cal-year-dot-hover {
   transform: scale(1.8);
   z-index: 1;
-  outline: 1px solid #fff;
+  outline: 1px solid #ffffff;
 }
 
 .cockpit-cal-year-dot-more {
-  font-size: 5px;
+  font-size: 6px;
   color: var(--text-faint);
   line-height: 1;
 }
@@ -1153,48 +1159,48 @@
    ═══════════════════════════════════════════════════════════ */
 
 /* Header: wrap into two lines */
-body.is-mobile .cockpit-board-header {
-  flex-wrap: wrap !important;
-  gap: 4px !important;
-  padding: 4px 8px !important;
+body.is-mobile.is-mobile .cockpit-board-header {
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 8px;
 }
 
-body.is-mobile .cockpit-board-header h2 {
-  font-size: 0.9rem !important;
-  width: 100% !important;
-  margin-bottom: 2px !important;
+body.is-mobile.is-mobile .cockpit-board-header h2 {
+  font-size: 0.9rem;
+  width: 100%;
+  margin-bottom: 2px;
 }
 
-body.is-mobile .cockpit-search-wrap {
-  max-width: unset !important;
-  width: 100% !important;
+body.is-mobile.is-mobile .cockpit-search-wrap {
+  max-width: unset;
+  width: 100%;
   order: 10;
 }
 
-body.is-mobile .cockpit-search {
-  font-size: 1rem !important;
-  padding: 10px 14px !important;
-  border-radius: 8px !important;
+body.is-mobile.is-mobile .cockpit-search {
+  font-size: 1rem;
+  padding: 10px 14px;
+  border-radius: 8px;
 }
 
-body.is-mobile .cockpit-week-separator {
-  font-size: 0.72rem !important;
-  padding: 8px 4px 4px !important;
-  margin-top: 8px !important;
-  font-weight: 700 !important;
-  color: var(--text-accent) !important;
+body.is-mobile.is-mobile .cockpit-week-separator {
+  font-size: 0.6rem;
+  padding: 8px 4px 4px;
+  margin-top: 8px;
+  font-weight: 700;
+  color: var(--text-accent);
 }
 
-body.is-mobile .cockpit-filter-dropdown-btn,
-body.is-mobile .cockpit-archive-btn,
-body.is-mobile .cockpit-focus-btn {
-  font-size: 0.7rem !important;
-  padding: 4px 8px !important;
+body.is-mobile.is-mobile .cockpit-filter-dropdown-btn,
+body.is-mobile.is-mobile .cockpit-archive-btn,
+body.is-mobile.is-mobile .cockpit-focus-btn {
+  font-size: 0.7rem;
+  padding: 4px 8px;
 }
 
 /* Hide less important header buttons on mobile */
-body.is-mobile .cockpit-focus-btn {
-  display: none !important;
+body.is-mobile.is-mobile .cockpit-focus-btn {
+  display: none;
 }
 
 /* Tab bar: compact, scrollable */
@@ -1202,7 +1208,7 @@ body.is-mobile .cockpit-mobile-tabs {
   display: flex;
   overflow-x: auto;
   gap: 2px;
-  padding: 4px 4px;
+  padding: 4px;
   border-bottom: 1px solid var(--background-modifier-border);
   -webkit-overflow-scrolling: touch;
   flex-shrink: 0;
@@ -1246,19 +1252,19 @@ body.is-mobile .cockpit-mobile-column-area {
   min-height: 0;
 }
 
-body.is-mobile .cockpit-mobile-column-area .cockpit-column {
-  min-width: unset !important;
-  max-width: unset !important;
+body.is-mobile.is-mobile .cockpit-mobile-column-area .cockpit-column {
+  min-width: unset;
+  max-width: unset;
   width: 100%;
   border-radius: 0;
   border-top: none;
   background: transparent;
-  max-height: unset !important;
+  max-height: unset;
 }
 
-body.is-mobile .cockpit-mobile-column-area .cockpit-column-cards {
-  max-height: unset !important;
-  overflow: visible !important;
+body.is-mobile.is-mobile .cockpit-mobile-column-area .cockpit-column-cards {
+  max-height: unset;
+  overflow: visible;
 }
 
 body.is-mobile .cockpit-mobile-column-area .cockpit-column-header {
@@ -1266,19 +1272,19 @@ body.is-mobile .cockpit-mobile-column-area .cockpit-column-header {
 }
 
 /* Cards: full width, good touch targets */
-body.is-mobile .cockpit-card {
-  padding: 10px 12px !important;
+body.is-mobile.is-mobile .cockpit-card {
+  padding: 10px 12px;
   min-height: 44px;
   margin-bottom: 4px;
 }
 
-body.is-mobile .cockpit-card-title {
-  font-size: 0.92rem !important;
+body.is-mobile.is-mobile .cockpit-card-title {
+  font-size: 0.92rem;
 }
 
-body.is-mobile .cockpit-card-meta {
-  font-size: 0.78rem !important;
-  margin-top: 4px !important;
+body.is-mobile.is-mobile .cockpit-card-meta {
+  font-size: 0.78rem;
+  margin-top: 4px;
 }
 
 body.is-mobile .cockpit-label {
@@ -1287,84 +1293,37 @@ body.is-mobile .cockpit-label {
 }
 
 /* Hide desktop-only elements */
-body.is-mobile .cockpit-add-column { display: none !important; }
-body.is-mobile .cockpit-board { display: none !important; }
-body.is-mobile .cockpit-week-separator { font-size: 0.6rem !important; }
+body.is-mobile.is-mobile .cockpit-add-column { display: none; }
+body.is-mobile.is-mobile .cockpit-board { display: none; }
 
 /* Calendar mobile adjustments */
-body.is-mobile .cockpit-cal-controls {
-  flex-wrap: wrap !important;
-  gap: 4px !important;
-  padding: 4px !important;
+body.is-mobile.is-mobile .cockpit-cal-controls {
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
 }
 
-body.is-mobile .cockpit-cal-timegrid {
-  height: calc(100vh - 220px) !important;
+body.is-mobile.is-mobile .cockpit-cal-timegrid {
+  height: calc(100vh - 220px);
 }
 
-body.is-mobile .cockpit-cal-allday {
-  max-height: 80px !important;
-  font-size: 0.65rem !important;
+body.is-mobile.is-mobile .cockpit-cal-allday {
+  max-height: 80px;
+  font-size: 0.65rem;
 }
 
-body.is-mobile .cockpit-cal-timecard {
-  font-size: 0.6rem !important;
-  padding: 2px 3px !important;
-  min-height: 28px !important;
+body.is-mobile.is-mobile .cockpit-cal-timecard {
+  font-size: 0.6rem;
+  padding: 2px 3px;
+  min-height: 28px;
 }
 
-body.is-mobile .cockpit-cal-day-header {
-  font-size: 0.6rem !important;
+body.is-mobile.is-mobile .cockpit-cal-day-header {
+  font-size: 0.6rem;
 }
 
 
 /* ── Calendar height fixes ────────────────────────────────── */
-
-.cockpit-board-content {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.cockpit-cal-controls {
-  flex-shrink: 0;
-}
-
-.cockpit-cal-month {
-  height: calc(100vh - 140px) !important;
-}
-
-.cockpit-cal-timegrid {
-  height: calc(100vh - 180px) !important;
-  overflow-y: auto;
-}
-
-.cockpit-cal-allday {
-  flex-shrink: 0;
-  max-height: 120px;
-  overflow-y: auto;
-}
-
-/* Year dots bigger */
-.cockpit-cal-year-dot {
-  width: 10px !important;
-  height: 10px !important;
-  border-radius: 2px !important;
-}
-
-.cockpit-cal-year-dot-more {
-  font-size: 6px !important;
-}
-
-.cockpit-cal-year-days {
-  gap: 3px !important;
-}
-
-.cockpit-cal-year-day {
-  min-width: 18px !important;
-}
 
 /* Year tooltip styling */
 .cockpit-cal-year-tooltip {
@@ -1392,8 +1351,8 @@ body.is-mobile .cockpit-cal-day-header {
   color: var(--text-normal);
 }
 
-.cockpit-cal-year-tooltip-item-highlight {
-  color: var(--text-accent) !important;
+.cockpit-cal-year-tooltip .cockpit-cal-year-tooltip-item-highlight {
+  color: var(--text-accent);
   font-weight: 700;
 }
 
