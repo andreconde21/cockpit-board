@@ -36,7 +36,12 @@ export class CockpitBoardView extends ItemView {
   calendarDate = new Date();
   allCards: CardData[] | null = null;
   activeFilters: Set<string> = new Set();
-  pauseRefresh = false;
+  private _pauseRefreshCount = 0;
+  get pauseRefresh(): boolean { return this._pauseRefreshCount > 0; }
+  set pauseRefresh(v: boolean) {
+    if (v) this._pauseRefreshCount++;
+    else this._pauseRefreshCount = Math.max(0, this._pauseRefreshCount - 1);
+  }
   _bulkOperating = false;
   ctrlHeld = false;
   private _archiveSearchTimer: number | null = null;
@@ -506,12 +511,15 @@ export class CockpitBoardView extends ItemView {
       }
     }
 
-    const ownPause = !this.pauseRefresh;
-    if (ownPause) this.pauseRefresh = true;
+    this.pauseRefresh = true;
     try {
       const content = await this.app.vault.read(card.file);
       const newContent = this.applyFrontmatterUpdates(content, updates);
       await this.app.vault.modify(card.file, newContent);
+      // Clear stale order from source column so the card doesn't get
+      // ranked by an irrelevant order in the new column before
+      // persistColumnOrder re-numbers.
+      await this.app.fileManager.processFrontMatter(card.file, (fm: CardFrontmatter) => { delete fm.order; });
       // Wait for metadata cache to pick up the file change
       await new Promise(r => activeWindow.setTimeout(r, 200));
       if (!this._bulkOperating && !skipRender) {
@@ -522,10 +530,7 @@ export class CockpitBoardView extends ItemView {
       console.error("Cockpit Board:", e);
       new Notice("Error moving card");
     } finally {
-      if (ownPause) {
-        // Release after metadata events settle, so the next legit refresh works
-        activeWindow.setTimeout(() => { this.pauseRefresh = false; }, 800);
-      }
+      activeWindow.setTimeout(() => { this.pauseRefresh = false; }, 800);
     }
   }
 
