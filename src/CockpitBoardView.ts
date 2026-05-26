@@ -221,37 +221,6 @@ export class CockpitBoardView extends ItemView {
 
   toast(msg: string): void { new Notice(msg, 2500); }
 
-  // Resolves once the metadataCache reflects every field in `expected` for
-  // the given file, or after timeoutMs. Avoids reading stale frontmatter in
-  // downstream renders. Listening for "changed" alone isn't enough — that
-  // event can fire on cache invalidation before the new parse is in place.
-  private waitForFrontmatterUpdate(file: TFile, expected: Record<string, string>, timeoutMs = 800): Promise<void> {
-    const fieldKeys = Object.keys(expected).filter(k => !k.startsWith("_"));
-    return new Promise((resolve) => {
-      const check = (): boolean => {
-        const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
-        if (!fm) return false;
-        for (const key of fieldKeys) {
-          if (String(fm[key] ?? "") !== expected[key]) return false;
-        }
-        return true;
-      };
-      if (check()) { resolve(); return; }
-      let done = false;
-      const finish = () => {
-        if (done) return;
-        done = true;
-        this.app.metadataCache.offref(ref);
-        activeWindow.clearTimeout(timer);
-        resolve();
-      };
-      const ref = this.app.metadataCache.on("changed", (changed) => {
-        if (changed.path === file.path && check()) finish();
-      });
-      const timer = activeWindow.setTimeout(finish, timeoutMs);
-    });
-  }
-
   async render(): Promise<void> {
     const contentEl = this.containerEl.children[1] as HTMLElement;
     const existingBoard = contentEl.querySelector(".cockpit-board") as HTMLElement | null;
@@ -544,17 +513,26 @@ export class CockpitBoardView extends ItemView {
 
     this.pauseRefresh = true;
     try {
-      const content = await this.app.vault.read(card.file);
-      // Strip stale order so the card isn't ranked by an irrelevant order in
-      // the new column before persistColumnOrder re-numbers. Done in the same
-      // write as the status update to avoid a second processFrontMatter call
-      // that would read a stale cache and clobber the status we just set.
-      const newContent = this.applyFrontmatterUpdates(content, updates, true);
-      await this.app.vault.modify(card.file, newContent);
-      // Wait until metadataCache actually has our new values for this file
-      // before any downstream render reads it. A bare "changed" event isn't
-      // sufficient — it can fire on cache invalidation before re-parse.
-      await this.waitForFrontmatterUpdate(card.file, updates);
+      // Single atomic processFrontMatter rather than vault.modify +
+      // applyFrontmatterUpdates. Obsidian guarantees the metadata cache is
+      // in sync with the file after processFrontMatter resolves — the raw
+      // regex-and-modify path didn't, so a subsequent render could see the
+      // cache mid-update and fall through to the no-date Backlog rule.
+      await this.app.fileManager.processFrontMatter(card.file, (fm: CardFrontmatter) => {
+        if ("status" in updates) fm.status = updates.status;
+        if ("due" in updates) fm.due = updates.due;
+        if ("time" in updates) fm.time = updates.time;
+        if ("completed" in updates) fm.completed = updates.completed;
+        if (updates._addLabel) {
+          const labels = Array.isArray(fm.labels) ? fm.labels : [];
+          if (!labels.includes(updates._addLabel)) fm.labels = [...labels, updates._addLabel];
+        }
+        if (updates._removeLabel) {
+          fm.labels = (Array.isArray(fm.labels) ? fm.labels : []).filter((l) => l !== updates._removeLabel);
+        }
+        // Stale order from the source column has no meaning in the new one.
+        delete fm.order;
+      });
       if (!this._bulkOperating && !skipRender) {
         this.toast(`Moved to ${targetCol.label || targetCol.id}`);
         void this.render();
@@ -565,51 +543,6 @@ export class CockpitBoardView extends ItemView {
     } finally {
       activeWindow.setTimeout(() => { this.pauseRefresh = false; }, 800);
     }
-  }
-
-  private applyFrontmatterUpdates(content: string, updates: Record<string, string>, clearOrder = false): string {
-    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
-    if (!fmMatch) return content;
-    let fm = fmMatch[1];
-    const body = content.slice(fmMatch[0].length);
-
-    const setField = (field: string, value: string) => {
-      const regex = new RegExp(`^${field}:.*$`, "m");
-      if (regex.test(fm)) {
-        fm = fm.replace(regex, `${field}: ${value}`);
-      } else {
-        fm += `\n${field}: ${value}`;
-      }
-    };
-
-    if ("status" in updates) setField("status", updates.status);
-    if ("due" in updates) setField("due", updates.due);
-    if ("time" in updates) setField("time", updates.time);
-    if ("completed" in updates) setField("completed", updates.completed);
-    if (clearOrder) {
-      fm = fm.replace(/^order:.*\n?/m, "");
-    }
-
-    if (updates._addLabel) {
-      const labelsMatch = fm.match(/^labels:\s*\[(.*)\]$/m);
-      if (labelsMatch) {
-        const existing = labelsMatch[1].split(",").map(s => s.trim().replace(/"/g, "")).filter(Boolean);
-        if (!existing.includes(updates._addLabel)) {
-          existing.push(updates._addLabel);
-          fm = fm.replace(/^labels:.*$/m, `labels: [${existing.map(l => `"${l}"`).join(", ")}]`);
-        }
-      }
-    }
-    if (updates._removeLabel) {
-      const labelsMatch = fm.match(/^labels:\s*\[(.*)\]$/m);
-      if (labelsMatch) {
-        const existing = labelsMatch[1].split(",").map(s => s.trim().replace(/"/g, "")).filter(Boolean);
-        const filtered = existing.filter(l => l !== updates._removeLabel);
-        fm = fm.replace(/^labels:.*$/m, `labels: [${filtered.map(l => `"${l}"`).join(", ")}]`);
-      }
-    }
-
-    return `---\n${fm}\n---${body}`;
   }
 
   async persistColumnOrder(colId: string): Promise<void> {
@@ -712,13 +645,25 @@ export class CockpitBoardView extends ItemView {
     } catch { new Notice("Error updating card"); }
   }
 
+  // Builds the next available sibling path for a derived note, stripping any
+  // existing chain of the same suffix so repeated duplicate/split actions
+  // don't produce "task-cont-cont-cont-..." filenames. Numbers start at 1.
+  private nextSiblingPath(originalPath: string, suffix: string): string {
+    const stripped = originalPath.replace(/\.md$/, "");
+    const cleanBase = stripped.replace(new RegExp(`(?:-${suffix}(?:-\\d+)?)+$`), "");
+    let n = 1;
+    let path = `${cleanBase}-${suffix}-${n}.md`;
+    while (this.app.vault.getAbstractFileByPath(path)) {
+      n++;
+      path = `${cleanBase}-${suffix}-${n}.md`;
+    }
+    return path;
+  }
+
   async duplicateCard(card: CardData): Promise<void> {
     try {
       const content = await this.app.vault.read(card.file);
-      const base = card.file.path.replace(/\.md$/, "");
-      let path = base + "-copy.md";
-      let i = 2;
-      while (this.app.vault.getAbstractFileByPath(path)) { path = base + `-copy-${i}.md`; i++; }
+      const path = this.nextSiblingPath(card.file.path, "copy");
       const newFile = await this.app.vault.create(path, content);
       // Reset status/completed but preserve everything else (labels, project, etc.)
       await this.app.fileManager.processFrontMatter(newFile, (fm: CardFrontmatter) => {
@@ -777,10 +722,7 @@ export class CockpitBoardView extends ItemView {
       const origFmMatch = origContent.match(/^---\n([\s\S]*?)\n---/);
       const origFmBlock = origFmMatch ? origFmMatch[0] : frontmatter;
       const newContent = origFmBlock + "\n" + newBodyLines.join("\n");
-      const base = card.file.path.replace(/\.md$/, "");
-      let path = base + "-cont.md";
-      let n = 2;
-      while (this.app.vault.getAbstractFileByPath(path)) { path = base + `-cont-${n}.md`; n++; }
+      const path = this.nextSiblingPath(card.file.path, "cont");
       const newFile = await this.app.vault.create(path, newContent);
       // Reset status/completed but keep labels, project, etc.
       await this.app.fileManager.processFrontMatter(newFile, (fm: CardFrontmatter) => {
