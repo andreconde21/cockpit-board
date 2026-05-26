@@ -40,6 +40,8 @@ export class CockpitBoardView extends ItemView {
   _bulkOperating = false;
   ctrlHeld = false;
   private _archiveSearchTimer: number | null = null;
+  private _boardScrollLeft = 0;
+  private _columnScrollTops: Record<string, number> = {};
 
   constructor(leaf: WorkspaceLeaf, plugin: CockpitBoardPlugin) {
     super(leaf);
@@ -216,12 +218,16 @@ export class CockpitBoardView extends ItemView {
 
   async render(): Promise<void> {
     const contentEl = this.containerEl.children[1] as HTMLElement;
-    const scrollPositions: Record<string, number> = {};
-    contentEl.querySelectorAll(".cockpit-column-cards").forEach(col => {
-      const colId = (col.closest(".cockpit-column") as HTMLElement)?.dataset?.columnId;
-      if (colId) scrollPositions[colId] = (col as HTMLElement).scrollTop;
-    });
-    const boardScrollLeft = (contentEl.querySelector(".cockpit-board") as HTMLElement)?.scrollLeft || 0;
+    const existingBoard = contentEl.querySelector(".cockpit-board") as HTMLElement | null;
+    // Only update stored scroll if a board exists — otherwise a concurrent
+    // render already emptied it and the stored values are still authoritative.
+    if (existingBoard) {
+      this._boardScrollLeft = existingBoard.scrollLeft;
+      contentEl.querySelectorAll(".cockpit-column-cards").forEach(col => {
+        const colId = (col.closest(".cockpit-column") as HTMLElement)?.dataset?.columnId;
+        if (colId) this._columnScrollTops[colId] = (col as HTMLElement).scrollTop;
+      });
+    }
 
     contentEl.empty();
     contentEl.addClass("cockpit-board-content");
@@ -355,14 +361,12 @@ export class CockpitBoardView extends ItemView {
       });
     }
 
-    activeWindow.setTimeout(() => {
-      const board = contentEl.querySelector(".cockpit-board");
-      if (board) board.scrollLeft = boardScrollLeft;
-      contentEl.querySelectorAll(".cockpit-column-cards").forEach(col => {
-        const colId = (col.closest(".cockpit-column") as HTMLElement)?.dataset?.columnId;
-        if (colId && scrollPositions[colId]) (col as HTMLElement).scrollTop = scrollPositions[colId];
-      });
-    }, 50);
+    const newBoard = contentEl.querySelector(".cockpit-board") as HTMLElement | null;
+    if (newBoard) newBoard.scrollLeft = this._boardScrollLeft;
+    contentEl.querySelectorAll(".cockpit-column-cards").forEach(col => {
+      const colId = (col.closest(".cockpit-column") as HTMLElement)?.dataset?.columnId;
+      if (colId && this._columnScrollTops[colId]) (col as HTMLElement).scrollTop = this._columnScrollTops[colId];
+    });
   }
 
   // ── Mobile rendering ──
