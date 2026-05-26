@@ -221,6 +221,26 @@ export class CockpitBoardView extends ItemView {
 
   toast(msg: string): void { new Notice(msg, 2500); }
 
+  // Resolves when metadataCache reports a 'changed' event for the given file,
+  // or after timeoutMs if the event doesn't arrive. Used to make sure the
+  // cache reflects our write before we read it in a subsequent render.
+  private waitForMetadataChange(file: TFile, timeoutMs = 800): Promise<void> {
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        this.app.metadataCache.offref(ref);
+        activeWindow.clearTimeout(timer);
+        resolve();
+      };
+      const ref = this.app.metadataCache.on("changed", (changed) => {
+        if (changed.path === file.path) finish();
+      });
+      const timer = activeWindow.setTimeout(finish, timeoutMs);
+    });
+  }
+
   async render(): Promise<void> {
     const contentEl = this.containerEl.children[1] as HTMLElement;
     const existingBoard = contentEl.querySelector(".cockpit-board") as HTMLElement | null;
@@ -520,8 +540,9 @@ export class CockpitBoardView extends ItemView {
       // that would read a stale cache and clobber the status we just set.
       const newContent = this.applyFrontmatterUpdates(content, updates, true);
       await this.app.vault.modify(card.file, newContent);
-      // Wait for metadata cache to pick up the file change
-      await new Promise(r => activeWindow.setTimeout(r, 200));
+      // Wait for metadata cache to actually reflect the write before any
+      // downstream render reads it (stale cache → wrong column placement).
+      await this.waitForMetadataChange(card.file);
       if (!this._bulkOperating && !skipRender) {
         this.toast(`Moved to ${targetCol.label || targetCol.id}`);
         void this.render();
