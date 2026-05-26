@@ -514,12 +514,12 @@ export class CockpitBoardView extends ItemView {
     this.pauseRefresh = true;
     try {
       const content = await this.app.vault.read(card.file);
-      const newContent = this.applyFrontmatterUpdates(content, updates);
+      // Strip stale order so the card isn't ranked by an irrelevant order in
+      // the new column before persistColumnOrder re-numbers. Done in the same
+      // write as the status update to avoid a second processFrontMatter call
+      // that would read a stale cache and clobber the status we just set.
+      const newContent = this.applyFrontmatterUpdates(content, updates, true);
       await this.app.vault.modify(card.file, newContent);
-      // Clear stale order from source column so the card doesn't get
-      // ranked by an irrelevant order in the new column before
-      // persistColumnOrder re-numbers.
-      await this.app.fileManager.processFrontMatter(card.file, (fm: CardFrontmatter) => { delete fm.order; });
       // Wait for metadata cache to pick up the file change
       await new Promise(r => activeWindow.setTimeout(r, 200));
       if (!this._bulkOperating && !skipRender) {
@@ -534,7 +534,7 @@ export class CockpitBoardView extends ItemView {
     }
   }
 
-  private applyFrontmatterUpdates(content: string, updates: Record<string, string>): string {
+  private applyFrontmatterUpdates(content: string, updates: Record<string, string>, clearOrder = false): string {
     const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
     if (!fmMatch) return content;
     let fm = fmMatch[1];
@@ -553,6 +553,9 @@ export class CockpitBoardView extends ItemView {
     if ("due" in updates) setField("due", updates.due);
     if ("time" in updates) setField("time", updates.time);
     if ("completed" in updates) setField("completed", updates.completed);
+    if (clearOrder) {
+      fm = fm.replace(/^order:.*\n?/m, "");
+    }
 
     if (updates._addLabel) {
       const labelsMatch = fm.match(/^labels:\s*\[(.*)\]$/m);
