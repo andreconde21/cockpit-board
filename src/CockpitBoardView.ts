@@ -132,7 +132,10 @@ export class CockpitBoardView extends ItemView {
   debouncedRefresh(): void {
     if (this.pauseRefresh) return;
     if (this.refreshTimer) activeWindow.clearTimeout(this.refreshTimer);
-    this.refreshTimer = activeWindow.setTimeout(() => { void this.render(); }, 500);
+    this.refreshTimer = activeWindow.setTimeout(() => {
+      if (this.pauseRefresh) return;
+      void this.render();
+    }, 500);
   }
 
   async loadCards(): Promise<CardData[]> {
@@ -499,6 +502,8 @@ export class CockpitBoardView extends ItemView {
       }
     }
 
+    const ownPause = !this.pauseRefresh;
+    if (ownPause) this.pauseRefresh = true;
     try {
       const content = await this.app.vault.read(card.file);
       const newContent = this.applyFrontmatterUpdates(content, updates);
@@ -512,6 +517,11 @@ export class CockpitBoardView extends ItemView {
     } catch (e: unknown) {
       console.error("Cockpit Board:", e);
       new Notice("Error moving card");
+    } finally {
+      if (ownPause) {
+        // Release after metadata events settle, so the next legit refresh works
+        activeWindow.setTimeout(() => { this.pauseRefresh = false; }, 800);
+      }
     }
   }
 
