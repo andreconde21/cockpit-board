@@ -221,11 +221,22 @@ export class CockpitBoardView extends ItemView {
 
   toast(msg: string): void { new Notice(msg, 2500); }
 
-  // Resolves when metadataCache reports a 'changed' event for the given file,
-  // or after timeoutMs if the event doesn't arrive. Used to make sure the
-  // cache reflects our write before we read it in a subsequent render.
-  private waitForMetadataChange(file: TFile, timeoutMs = 800): Promise<void> {
+  // Resolves once the metadataCache reflects every field in `expected` for
+  // the given file, or after timeoutMs. Avoids reading stale frontmatter in
+  // downstream renders. Listening for "changed" alone isn't enough — that
+  // event can fire on cache invalidation before the new parse is in place.
+  private waitForFrontmatterUpdate(file: TFile, expected: Record<string, string>, timeoutMs = 800): Promise<void> {
+    const fieldKeys = Object.keys(expected).filter(k => !k.startsWith("_"));
     return new Promise((resolve) => {
+      const check = (): boolean => {
+        const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
+        if (!fm) return false;
+        for (const key of fieldKeys) {
+          if (String(fm[key] ?? "") !== expected[key]) return false;
+        }
+        return true;
+      };
+      if (check()) { resolve(); return; }
       let done = false;
       const finish = () => {
         if (done) return;
@@ -235,7 +246,7 @@ export class CockpitBoardView extends ItemView {
         resolve();
       };
       const ref = this.app.metadataCache.on("changed", (changed) => {
-        if (changed.path === file.path) finish();
+        if (changed.path === file.path && check()) finish();
       });
       const timer = activeWindow.setTimeout(finish, timeoutMs);
     });
@@ -540,9 +551,10 @@ export class CockpitBoardView extends ItemView {
       // that would read a stale cache and clobber the status we just set.
       const newContent = this.applyFrontmatterUpdates(content, updates, true);
       await this.app.vault.modify(card.file, newContent);
-      // Wait for metadata cache to actually reflect the write before any
-      // downstream render reads it (stale cache → wrong column placement).
-      await this.waitForMetadataChange(card.file);
+      // Wait until metadataCache actually has our new values for this file
+      // before any downstream render reads it. A bare "changed" event isn't
+      // sufficient — it can fire on cache invalidation before re-parse.
+      await this.waitForFrontmatterUpdate(card.file, updates);
       if (!this._bulkOperating && !skipRender) {
         this.toast(`Moved to ${targetCol.label || targetCol.id}`);
         void this.render();
