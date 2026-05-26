@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+    "deploy": "npm run build && cp main.js styles.css manifest.json \"$HOME/Dropbox/Obsidian/Cockpit/.obsidian/plugins/cockpit-board/\"",
     "lint": "npx eslint src/"
   },
   "keywords": [
