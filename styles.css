@@ -516,8 +516,7 @@ body.is-mobile.is-mobile .cockpit-mobile-column-area .cockpit-column.cockpit-col
 
 .cockpit-card .cockpit-cl-trigger {
   cursor: pointer;
-  text-decoration-line: underline;
-  text-decoration-style: dotted;
+  border-bottom: 1px dotted currentColor;
 }
 
 .cockpit-card .cockpit-cl-trigger:hover {
@@ -843,7 +842,6 @@ body.is-mobile.is-mobile .cockpit-mobile-column-area .cockpit-column.cockpit-col
 .cockpit-archive-table .cockpit-archive-link {
   color: var(--text-normal);
   cursor: pointer;
-  text-decoration-line: none;
 }
 
 .cockpit-archive-table .cockpit-archive-link:hover {

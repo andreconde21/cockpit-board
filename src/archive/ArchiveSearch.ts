@@ -92,7 +92,7 @@ export function renderArchiveSearch(contentEl: HTMLElement, ctx: ArchiveContext)
     for (const result of toShow) {
       const row = tbody.createEl("tr", { cls: "cockpit-archive-row" });
       const titleCell = row.createEl("td");
-      const link = titleCell.createEl("a", { text: result.title, cls: "cockpit-archive-link" });
+      const link = titleCell.createSpan({ text: result.title, cls: "cockpit-archive-link" });
       link.addEventListener("click", () => {
         const file = ctx.app.vault.getAbstractFileByPath(result.path);
         if (file instanceof TFile) ctx.openCard({ file, displayTitle: result.title });
