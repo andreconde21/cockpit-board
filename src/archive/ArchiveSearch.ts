@@ -114,8 +114,8 @@ export function renderArchiveSearch(contentEl: HTMLElement, ctx: ArchiveContext)
   fromInput.addEventListener("change", doSearch);
   toInput.addEventListener("change", doSearch);
   searchInput.addEventListener("input", () => {
-    if (searchTimer) activeWindow.clearTimeout(searchTimer);
-    searchTimer = activeWindow.setTimeout(doSearch, 300);
+    if (searchTimer) window.clearTimeout(searchTimer);
+    searchTimer = window.setTimeout(doSearch, 300);
   });
 
   doSearch();
@@ -153,7 +153,7 @@ function searchArchive(fromDate: string, toDate: string, query: string, ctx: Arc
           const fm = cache?.frontmatter || {};
           const title = fmStr(fm.title) || file.basename;
           const project = fmStr(fm.project);
-          const labels = Array.isArray(fm.labels) ? fm.labels as string[] : [];
+          const labels = Array.isArray(fm.labels) ? fm.labels : [];
           const completed = fmStr(fm.completed);
           if (query) {
             const searchable = `${title} ${project} ${labels.join(" ")}`.toLowerCase();
@@ -174,7 +174,7 @@ function searchArchive(fromDate: string, toDate: string, query: string, ctx: Arc
       const fm = cache?.frontmatter || {};
       const title = fmStr(fm.title) || file.basename;
       const project = fmStr(fm.project);
-      const labels = Array.isArray(fm.labels) ? fm.labels as string[] : [];
+      const labels = Array.isArray(fm.labels) ? fm.labels : [];
       const completed = fmStr(fm.completed);
       if (query) {
         const searchable = `${title} ${project} ${labels.join(" ")}`.toLowerCase();
@@ -230,7 +230,7 @@ export function loadArchiveCardsForRange(fromStr: string, toStr: string, ctx: Ar
               dueEnd: fmStr(fm.due_end),
               time: fmStr(fm.time),
               project,
-              labels: Array.isArray(fm.labels) ? (fm.labels as string[]).filter(Boolean) : [],
+              labels: Array.isArray(fm.labels) ? fm.labels.filter(Boolean) : [],
               rawStatus: fmStr(fm.status),
               completed: fmStr(fm.completed),
               column: "done",

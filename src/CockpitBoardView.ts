@@ -8,7 +8,6 @@ import { VIEW_TYPE } from "./constants";
 import { CockpitCard } from "./CockpitCard";
 import { getDropUpdates } from "./rule-engine";
 import { todayStr, getToday, getTomorrow, parseDate, formatDateLocal } from "./ui/dom-helpers";
-import { type CardRendererContext } from "./ui/card-renderer";
 import { createColumn, type ColumnRendererContext } from "./ui/column-renderer";
 import {
   toggleSelectCard, selectRange, clearSelection,
@@ -70,13 +69,13 @@ export class CockpitBoardView extends ItemView {
     this.registerEvent(this.app.metadataCache.on("changed", () => this.debouncedRefresh()));
 
     // Track Ctrl key state for Ctrl+drag date override
-    this.registerDomEvent(document, "keydown", (e: KeyboardEvent) => {
+    this.registerDomEvent(activeDocument, "keydown", (e: KeyboardEvent) => {
       if (e.key === "Control") {
         this.ctrlHeld = true;
         this.showCtrlBar();
       }
     });
-    this.registerDomEvent(document, "keyup", (e: KeyboardEvent) => {
+    this.registerDomEvent(activeDocument, "keyup", (e: KeyboardEvent) => {
       if (e.key === "Control") {
         this.ctrlHeld = false;
         this.hideCtrlBar();
@@ -85,7 +84,7 @@ export class CockpitBoardView extends ItemView {
     // Reset on window blur — but NOT during drag (drag can cause brief blur)
     this.registerDomEvent(window, "blur", () => {
       // Delay reset to avoid false reset during drag-and-drop
-      activeWindow.setTimeout(() => {
+      window.setTimeout(() => {
         if (!activeDocument.hasFocus()) {
           this.ctrlHeld = false;
           this.hideCtrlBar();
@@ -93,7 +92,7 @@ export class CockpitBoardView extends ItemView {
       }, 100);
     });
 
-    this.registerDomEvent(document, "keydown", (e: KeyboardEvent) => {
+    this.registerDomEvent(activeDocument, "keydown", (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
       if (e.key === "Escape") { this.clearSelection(); return; }
@@ -138,8 +137,8 @@ export class CockpitBoardView extends ItemView {
 
   debouncedRefresh(): void {
     if (this.pauseRefresh) return;
-    if (this.refreshTimer) activeWindow.clearTimeout(this.refreshTimer);
-    this.refreshTimer = activeWindow.setTimeout(() => {
+    if (this.refreshTimer) window.clearTimeout(this.refreshTimer);
+    this.refreshTimer = window.setTimeout(() => {
       if (this.pauseRefresh) return;
       void this.render();
     }, 500);
@@ -356,13 +355,15 @@ export class CockpitBoardView extends ItemView {
       }
       const addColBtn = board.createDiv({ cls: "cockpit-add-column" });
       addColBtn.textContent = "+ add list";
-      addColBtn.addEventListener("click", async () => {
-        const name = await this.promptForTitle("New list name");
-        if (!name) return;
-        const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 30);
-        this.plugin.settings.columns.push({ id, label: name, color: "#778CA3", rule: null });
-        await this.plugin.saveSettings();
-        void this.render();
+      addColBtn.addEventListener("click", () => {
+        void (async () => {
+          const name = await this.promptForTitle("New list name");
+          if (!name) return;
+          const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 30);
+          this.plugin.settings.columns.push({ id, label: name, color: "#778CA3", rule: null });
+          await this.plugin.saveSettings();
+          void this.render();
+        })();
       });
     }
 
@@ -400,7 +401,7 @@ export class CockpitBoardView extends ItemView {
       });
     });
 
-    activeWindow.setTimeout(() => {
+    window.setTimeout(() => {
       const activeTab = tabs.children[this.activeColumnIndex] as HTMLElement;
       if (activeTab) activeTab.scrollIntoView({ inline: "center", block: "nearest" });
     }, 50);
@@ -541,7 +542,7 @@ export class CockpitBoardView extends ItemView {
       console.error("Cockpit Board:", e);
       new Notice("Error moving card");
     } finally {
-      activeWindow.setTimeout(() => { this.pauseRefresh = false; }, 800);
+      window.setTimeout(() => { this.pauseRefresh = false; }, 800);
     }
   }
 
@@ -549,7 +550,7 @@ export class CockpitBoardView extends ItemView {
     this.pauseRefresh = true;
     try {
       // Delay to let Obsidian's file cache catch up after vault.modify writes
-      await new Promise(r => activeWindow.setTimeout(r, 300));
+      await new Promise(r => window.setTimeout(r, 300));
       const colEl = this.containerEl.querySelector(`.cockpit-column[data-column-id="${colId}"]`);
       if (!colEl) return;
       const cardEls = Array.from(colEl.querySelectorAll(".cockpit-card[data-path]"));
@@ -563,7 +564,7 @@ export class CockpitBoardView extends ItemView {
         }
       }
     } finally {
-      activeWindow.setTimeout(() => { this.pauseRefresh = false; }, 2000);
+      window.setTimeout(() => { this.pauseRefresh = false; }, 2000);
     }
   }
 

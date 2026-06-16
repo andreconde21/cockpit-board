@@ -36,28 +36,32 @@ export default class CockpitBoardPlugin extends Plugin {
     this.addCommand({
       id: "open-archive",
       name: "Open archive search",
-      callback: async () => {
-        await this.activateView();
-        const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
-        if (leaf?.view) {
-          (leaf.view as CockpitBoardView).showArchive = true;
-          void (leaf.view as CockpitBoardView).render();
-        }
+      callback: () => {
+        void (async () => {
+          await this.activateView();
+          const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
+          if (leaf?.view) {
+            (leaf.view as CockpitBoardView).showArchive = true;
+            void (leaf.view as CockpitBoardView).render();
+          }
+        })();
       },
     });
 
     this.addCommand({
       id: "open-calendar",
       name: "Open calendar view",
-      callback: async () => {
-        await this.activateView();
-        const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
-        if (leaf?.view) {
-          const view = leaf.view as CockpitBoardView;
-          view.showCalendar = true;
-          view.showArchive = false;
-          void view.render();
-        }
+      callback: () => {
+        void (async () => {
+          await this.activateView();
+          const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
+          if (leaf?.view) {
+            const view = leaf.view as CockpitBoardView;
+            view.showCalendar = true;
+            view.showArchive = false;
+            void view.render();
+          }
+        })();
       },
     });
 

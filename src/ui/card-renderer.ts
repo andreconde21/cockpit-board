@@ -374,17 +374,17 @@ function attachLongPress(el: HTMLElement): void {
   el.addEventListener("touchstart", (e) => {
     lpMoved = false;
     const touch = e.touches[0];
-    lpTimer = activeWindow.setTimeout(() => {
+    lpTimer = window.setTimeout(() => {
       if (lpMoved) return;
       el.dispatchEvent(new MouseEvent("contextmenu", { clientX: touch.clientX, clientY: touch.clientY, bubbles: true }));
     }, 500);
   }, { passive: true });
   el.addEventListener("touchmove", () => {
     lpMoved = true;
-    if (lpTimer) { activeWindow.clearTimeout(lpTimer); lpTimer = null; }
+    if (lpTimer) { window.clearTimeout(lpTimer); lpTimer = null; }
   }, { passive: true });
   el.addEventListener("touchend", () => {
-    if (lpTimer) { activeWindow.clearTimeout(lpTimer); lpTimer = null; }
+    if (lpTimer) { window.clearTimeout(lpTimer); lpTimer = null; }
   }, { passive: true });
 }
 

@@ -178,7 +178,7 @@ export class CockpitBoardSettingTab extends PluginSettingTab {
         this.renderColumnList(listEl);
       })(); }));
 
-    new Setting(containerEl).addButton(btn => btn.setButtonText("Reset to defaults").setWarning()
+    new Setting(containerEl).addButton(btn => btn.setButtonText("Reset to defaults").setDestructive()
       .onClick(() => { void (async () => {
         this.plugin.settings.columns = JSON.parse(JSON.stringify(DEFAULT_COLUMNS)) as typeof DEFAULT_COLUMNS;
         await this.plugin.saveSettings();
