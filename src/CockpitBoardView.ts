@@ -222,7 +222,7 @@ export class CockpitBoardView extends ItemView {
 
   async render(): Promise<void> {
     const contentEl = this.containerEl.children[1] as HTMLElement;
-    const existingBoard = contentEl.querySelector(".cockpit-board") as HTMLElement | null;
+    const existingBoard = contentEl.querySelector<HTMLElement>(".cockpit-board");
     // Only update stored scroll if a board exists — otherwise a concurrent
     // render already emptied it and the stored values are still authoritative.
     if (existingBoard) {
@@ -367,7 +367,7 @@ export class CockpitBoardView extends ItemView {
       });
     }
 
-    const newBoard = contentEl.querySelector(".cockpit-board") as HTMLElement | null;
+    const newBoard = contentEl.querySelector<HTMLElement>(".cockpit-board");
     if (newBoard) newBoard.scrollLeft = this._boardScrollLeft;
     contentEl.querySelectorAll(".cockpit-column-cards").forEach(col => {
       const colId = (col.closest(".cockpit-column") as HTMLElement)?.dataset?.columnId;
@@ -814,7 +814,7 @@ export class CockpitBoardView extends ItemView {
       draggedEl: this.draggedEl,
       pauseRefresh: this.pauseRefresh,
       _bulkOperating: this._bulkOperating,
-      openCard: (card: CardData) => this.openCard(card),
+      openCard: (card: CardData) => { void this.openCard(card); },
       openChecklistEditor: (card: CardData) => this.openChecklistEditor(card),
       promptDateTime: (card: CardData) => this.promptDateTime(card),
       toggleSelectCard: (card: CardData, el: HTMLElement) => this.toggleSelectCard(card, el),
@@ -868,7 +868,7 @@ export class CockpitBoardView extends ItemView {
       settings: this.settings,
       activeFilters: this.activeFilters,
       loadArchiveCardsForRange: (from, to) => Promise.resolve(loadArchiveCardsForRange(from, to, this.getArchiveContext())),
-      openCard: (card) => this.openCard(card),
+      openCard: (card) => { void this.openCard(card); },
       render: () => this.render(),
     };
   }
@@ -877,7 +877,7 @@ export class CockpitBoardView extends ItemView {
     return {
       settings: this.settings,
       app: this.app,
-      openCard: (card) => this.openCard(card as CardData),
+      openCard: (card) => { void this.openCard(card as CardData); },
     };
   }
 }
