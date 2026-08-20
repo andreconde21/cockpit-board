@@ -47,6 +47,10 @@ export class CockpitCard implements CardData {
   }
 
   get displayTitle(): string {
-    return this.project ? `[${this.project}] ${this.title}` : this.title;
+    if (!this.project) return this.title;
+
+    const wikilinkMatch = this.project.match(/^\[\[([^\]|]+)(?:\|([^\]]+))?\]\]$/);
+    const projectLabel = (wikilinkMatch?.[2] || wikilinkMatch?.[1] || this.project).trim();
+    return `[${projectLabel}] ${this.title}`;
   }
 }

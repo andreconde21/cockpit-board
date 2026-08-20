@@ -17,6 +17,7 @@ export interface SelectionContext {
   toast(msg: string): void;
   render(): Promise<void>;
   promptDateTime(card: CardData): void;
+  promptBulkDateTime(): void;
   app: App;
 }
 
@@ -234,10 +235,7 @@ async function bulkSetDate(dateStr: string, ctx: SelectionContext): Promise<void
 }
 
 function bulkSetDateTime(ctx: SelectionContext): void {
-  // Delegated to the view's promptDateTime for bulk
-  // The view will handle this via its own modal
-  const iter = ctx.selectedCards.values().next() as IteratorResult<{ card: CardData; el: HTMLElement }>;
-  if (!iter.done && iter.value) ctx.promptDateTime(iter.value.card);
+  ctx.promptBulkDateTime();
 }
 
 async function bulkClearDueDate(ctx: SelectionContext): Promise<void> {

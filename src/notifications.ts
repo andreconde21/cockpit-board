@@ -14,7 +14,7 @@ export function scheduleNotifications(
   const now = new Date();
   const todayStr = formatDateLocal(now);
 
-  for (const child of folder.children || []) {
+  for (const child of getMarkdownFiles(folder)) {
     if (!(child instanceof TFile) || child.extension !== "md") continue;
     const cache = app.metadataCache.getFileCache(child);
     const fm = cache?.frontmatter;
@@ -39,4 +39,19 @@ export function scheduleNotifications(
       notifiedToday.add(key);
     }
   }
+}
+
+function getMarkdownFiles(folder: TFolder): TFile[] {
+  const files: TFile[] = [];
+  const walk = (current: TFolder) => {
+    for (const child of current.children) {
+      if (child instanceof TFile && child.extension === "md") {
+        files.push(child);
+      } else if (child instanceof TFolder) {
+        walk(child);
+      }
+    }
+  };
+  walk(folder);
+  return files;
 }

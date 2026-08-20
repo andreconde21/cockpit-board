@@ -14,7 +14,7 @@ import {
   updateSelectionBar, showBulkMenu, type SelectionContext,
 } from "./ui/selection-manager";
 import { ChecklistEditorModal } from "./ui/checklist-editor";
-import { DateTimePickerModal } from "./ui/date-time-picker";
+import { BulkDateTimePickerModal, DateTimePickerModal } from "./ui/date-time-picker";
 import { renderCalendarView, hideYearTooltip, type CalendarViewContext } from "./calendar/CalendarView";
 import { renderArchiveSearch, loadArchiveCardsForRange, type ArchiveContext } from "./archive/ArchiveSearch";
 import type CockpitBoardPlugin from "./CockpitBoardPlugin";
@@ -29,6 +29,7 @@ export class CockpitBoardView extends ItemView {
   lastSelectedCard: { card: CardData; el: HTMLElement } | null = null;
   isMobile: boolean;
   activeColumnIndex = 0;
+  private _mobileDefaultApplied = false;
   showArchive = false;
   showCalendar = false;
   calendarMode: "week" | "month" | "year" = "week";
@@ -377,9 +378,14 @@ export class CockpitBoardView extends ItemView {
 
   // ── Mobile rendering ──
   private renderMobile(contentEl: HTMLElement, groups: Map<string, CardData[]>, overdueCount: number): void {
-    if (this.activeColumnIndex === 0 && this.settings.mobileDefaultColumn) {
+    if (!this._mobileDefaultApplied && this.settings.mobileDefaultColumn) {
       const defIdx = this.columns.findIndex(c => c.id === this.settings.mobileDefaultColumn);
       if (defIdx >= 0) this.activeColumnIndex = defIdx;
+      this._mobileDefaultApplied = true;
+    }
+
+    if (this.activeColumnIndex < 0 || this.activeColumnIndex >= this.columns.length) {
+      this.activeColumnIndex = 0;
     }
 
     const tabs = contentEl.createDiv({ cls: "cockpit-mobile-tabs" });
@@ -638,6 +644,26 @@ export class CockpitBoardView extends ItemView {
     ).open();
   }
 
+  promptBulkDateTime(): void {
+    if (this.selectedCards.size === 0) return;
+    new BulkDateTimePickerModal(this.app, this.selectedCards.size, async (updates) => {
+      this.pauseRefresh = true;
+      this._bulkOperating = true;
+      try {
+        const count = this.selectedCards.size;
+        for (const { card } of this.selectedCards.values()) {
+          await this.updateCardProperty(card.file, updates);
+        }
+        this.toast(`Updated date & time on ${count} card(s)`);
+      } finally {
+        this._bulkOperating = false;
+        this.pauseRefresh = false;
+        this.clearSelection();
+        void this.render();
+      }
+    }).open();
+  }
+
   async updateCardProperty(file: TFile, props: CardFrontmatter): Promise<void> {
     try {
       await this.app.fileManager.processFrontMatter(file, (fm: CardFrontmatter) => {
@@ -802,18 +828,24 @@ export class CockpitBoardView extends ItemView {
 
   // ── Context builders ──
   private getColumnRendererContext(): ColumnRendererContext {
+    const thisView = this;
     return {
       settings: this.settings,
       columns: this.columns,
       isMobile: this.isMobile,
       activeTimers: this.plugin.activeTimers,
       selectedCards: this.selectedCards,
-      lastSelectedCard: this.lastSelectedCard,
+      get lastSelectedCard() { return thisView.lastSelectedCard; },
+      set lastSelectedCard(value) { thisView.lastSelectedCard = value; },
       allCards: this.allCards,
-      draggedCard: this.draggedCard,
-      draggedEl: this.draggedEl,
-      pauseRefresh: this.pauseRefresh,
-      _bulkOperating: this._bulkOperating,
+      get draggedCard() { return thisView.draggedCard; },
+      set draggedCard(value) { thisView.draggedCard = value; },
+      get draggedEl() { return thisView.draggedEl; },
+      set draggedEl(value) { thisView.draggedEl = value; },
+      get pauseRefresh() { return thisView.pauseRefresh; },
+      set pauseRefresh(value) { thisView.pauseRefresh = value; },
+      get _bulkOperating() { return thisView._bulkOperating; },
+      set _bulkOperating(value) { thisView._bulkOperating = value; },
       openCard: (card: CardData) => { void this.openCard(card); },
       openChecklistEditor: (card: CardData) => this.openChecklistEditor(card),
       promptDateTime: (card: CardData) => this.promptDateTime(card),
@@ -843,20 +875,25 @@ export class CockpitBoardView extends ItemView {
   }
 
   private getSelectionContext(): SelectionContext {
+    const thisView = this;
     return {
       containerEl: this.containerEl,
       selectedCards: this.selectedCards,
-      lastSelectedCard: this.lastSelectedCard,
+      get lastSelectedCard() { return thisView.lastSelectedCard; },
+      set lastSelectedCard(value) { thisView.lastSelectedCard = value; },
       allCards: this.allCards,
       columns: this.columns,
       settings: this.settings,
-      pauseRefresh: this.pauseRefresh,
-      _bulkOperating: this._bulkOperating,
+      get pauseRefresh() { return thisView.pauseRefresh; },
+      set pauseRefresh(value) { thisView.pauseRefresh = value; },
+      get _bulkOperating() { return thisView._bulkOperating; },
+      set _bulkOperating(value) { thisView._bulkOperating = value; },
       handleDrop: (card, col) => this.handleDrop(card, col),
       updateCardProperty: (file, props) => this.updateCardProperty(file, props),
       toast: (msg) => this.toast(msg),
       render: () => this.render(),
       promptDateTime: (card) => this.promptDateTime(card),
+      promptBulkDateTime: () => this.promptBulkDateTime(),
       app: this.app,
     };
   }

@@ -7,13 +7,15 @@ interface TodayInfo {
   month: number;
   day: number;
   dow: number;
+  hour: number;
+  minute: number;
   dateStr: string;
 }
 
 export function matchesCron(cron: string, today: TodayInfo): boolean {
   const parts = cron.split(" ");
   if (parts.length < 5) return false;
-  const [, , dom, month, dow] = parts;
+  const [minute, hour, dom, month, dow] = parts;
   const matchField = (field: string, value: number): boolean => {
     if (field === "*") return true;
     if (field.includes(",")) return field.split(",").some(v => parseInt(v) === value);
@@ -24,7 +26,21 @@ export function matchesCron(cron: string, today: TodayInfo): boolean {
     if (field.startsWith("*/")) return value % parseInt(field.slice(2)) === 0;
     return parseInt(field) === value;
   };
-  return matchField(dom, today.day) && matchField(month, today.month) && matchField(dow, today.dow);
+  if (!matchField(dom, today.day) || !matchField(month, today.month) || !matchField(dow, today.dow)) {
+    return false;
+  }
+
+  const currentMinutes = (today.hour * 60) + today.minute;
+  for (let h = 0; h < 24; h++) {
+    if (!matchField(hour, h)) continue;
+    for (let m = 0; m < 60; m++) {
+      if (matchField(minute, m)) {
+        return currentMinutes >= ((h * 60) + m);
+      }
+    }
+  }
+
+  return false;
 }
 
 export async function checkRecurring(
@@ -48,6 +64,8 @@ export async function checkRecurring(
       month: now.getMonth() + 1,
       day: now.getDate(),
       dow: now.getDay(),
+      hour: now.getHours(),
+      minute: now.getMinutes(),
       dateStr: formatDateLocal(now),
     };
 
@@ -103,7 +121,7 @@ function taskExistsForToday(
 ): boolean {
   const folderObj = app.vault.getAbstractFileByPath(folder);
   if (!(folderObj instanceof TFolder)) return false;
-  for (const child of folderObj.children) {
+  for (const child of getMarkdownFiles(folderObj)) {
     if (!(child instanceof TFile)) continue;
     if (child.name.startsWith(slug) && child.extension === "md") {
       const cache = app.metadataCache.getFileCache(child);
@@ -111,4 +129,19 @@ function taskExistsForToday(
     }
   }
   return false;
+}
+
+function getMarkdownFiles(folder: TFolder): TFile[] {
+  const files: TFile[] = [];
+  const walk = (current: TFolder) => {
+    for (const child of current.children) {
+      if (child instanceof TFile && child.extension === "md") {
+        files.push(child);
+      } else if (child instanceof TFolder) {
+        walk(child);
+      }
+    }
+  };
+  walk(folder);
+  return files;
 }
