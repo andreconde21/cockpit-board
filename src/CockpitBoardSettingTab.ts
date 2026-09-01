@@ -103,6 +103,35 @@ export class CockpitBoardSettingTab extends PluginSettingTab {
         void this.plugin.saveSettings();
       }));
 
+    // ── Auto-archive ──
+    new Setting(containerEl).setName("Auto-archive").setHeading();
+
+    new Setting(containerEl)
+      .setName("Auto-archive done cards")
+      .setDesc("Automatically move done cards into the archive folder (yyyy/mm/dd structure, based on the completed date). Requires both a tasks folder and an archive folder. Checked hourly.")
+      .addToggle(t => t.setValue(this.plugin.settings.autoArchiveEnabled).onChange(v => {
+        this.plugin.settings.autoArchiveEnabled = v;
+        void this.plugin.saveSettings();
+        this.display();
+      }));
+
+    if (this.plugin.settings.autoArchiveEnabled) {
+      new Setting(containerEl)
+        .setName("Days to keep done cards")
+        .setDesc("Archive done cards this many days after completion. 0 archives them right away.")
+        .addText(t => t.setValue(String(this.plugin.settings.autoArchiveAfterDays)).onChange(v => {
+          const n = parseInt(v);
+          if (!isNaN(n) && n >= 0) {
+            this.plugin.settings.autoArchiveAfterDays = n;
+            void this.plugin.saveSettings();
+          }
+        }));
+
+      new Setting(containerEl).addButton(btn => btn.setButtonText("Archive done cards now").onClick(() => {
+        void this.plugin.runAutoArchive(true);
+      }));
+    }
+
     // ── Pomodoro ──
     new Setting(containerEl).setName("Pomodoro").setHeading();
 

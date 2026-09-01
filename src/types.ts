@@ -26,6 +26,8 @@ export interface ColumnConfig {
 export interface CockpitBoardSettings {
   folder: string;
   archiveFolder: string;
+  autoArchiveEnabled: boolean;
+  autoArchiveAfterDays: number;
   recurringConfigPath: string;
   columns: ColumnConfig[];
   enableCustomOrder: boolean;

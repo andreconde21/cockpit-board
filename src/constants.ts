@@ -14,6 +14,8 @@ export const DEFAULT_COLUMNS: ColumnConfig[] = [
 export const DEFAULT_SETTINGS: CockpitBoardSettings = {
   folder: "",
   archiveFolder: "",
+  autoArchiveEnabled: false,
+  autoArchiveAfterDays: 7,
   recurringConfigPath: "",
   columns: DEFAULT_COLUMNS,
   enableCustomOrder: true,

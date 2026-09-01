@@ -1,9 +1,10 @@
-import { Plugin, TFile } from "obsidian";
+import { Notice, Plugin, TFile } from "obsidian";
 import type { CardFrontmatter, CockpitBoardSettings, TimerData, PomodoroSession } from "./types";
 import { VIEW_TYPE, DEFAULT_SETTINGS, DEFAULT_COLUMNS } from "./constants";
 import { CockpitBoardView } from "./CockpitBoardView";
 import { CockpitBoardSettingTab } from "./CockpitBoardSettingTab";
 import { checkRecurring } from "./recurring";
+import { archiveDoneCards } from "./archive/AutoArchive";
 import { scheduleNotifications } from "./notifications";
 import { PomodoroEngine } from "./pomodoro";
 import { todayStr } from "./ui/dom-helpers.js";
@@ -65,6 +66,12 @@ export default class CockpitBoardPlugin extends Plugin {
       },
     });
 
+    this.addCommand({
+      id: "archive-done",
+      name: "Archive done cards now",
+      callback: () => { void this.runAutoArchive(true); },
+    });
+
     this.addRibbonIcon("layout-grid", "Cockpit board", () => { void this.activateView(); });
     this.addSettingTab(new CockpitBoardSettingTab(this.app, this));
 
@@ -99,13 +106,15 @@ export default class CockpitBoardPlugin extends Plugin {
       void this.loadDismissedRecurring().then(() => {
         void this.checkRecurring();
         this.runNotifications();
+        if (this.settings.autoArchiveEnabled) void this.runAutoArchive();
       });
     });
 
-    // Recurring check every hour
+    // Recurring + auto-archive check every hour
     this.registerInterval(window.setInterval(() => {
       void this.checkRecurring();
       this.runNotifications();
+      if (this.settings.autoArchiveEnabled) void this.runAutoArchive();
     }, 3600000));
 
     // Notification check every 5 minutes
@@ -186,6 +195,25 @@ export default class CockpitBoardPlugin extends Plugin {
     const created = await checkRecurring(this.settings, this._dismissedRecurring, this.app);
     if (created.length > 0) {
       await this.saveDismissedRecurring();
+    }
+  }
+
+  // ── Auto-archive ──
+  async runAutoArchive(manual = false): Promise<void> {
+    if (!this.settings.folder || !this.settings.archiveFolder) {
+      if (manual) new Notice("Set both a tasks folder and an archive folder in settings first.");
+      return;
+    }
+    const { moved, skipped } = await archiveDoneCards(this.app, this.settings);
+    const cards = (n: number) => `${n} card${n === 1 ? "" : "s"}`;
+    if (manual) {
+      new Notice(`Archived ${cards(moved)}${skipped > 0 ? `, skipped ${skipped}` : ""}`);
+    } else if (moved > 0) {
+      new Notice(`Cockpit board: archived ${cards(moved)}`);
+    }
+    if (moved > 0) {
+      const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
+      if (leaf?.view) void (leaf.view as CockpitBoardView).render();
     }
   }
 
