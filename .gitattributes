@@ -1,0 +1,9 @@
+# The repo was committed with CRLF, so any tool writing LF produced a diff
+# touching every line of a file it barely changed. Normalize to LF in the
+# repository and let checkout decide the working-tree ending.
+* text=auto
+
+# Never touch these.
+*.png binary
+*.jpg binary
+*.gif binary
