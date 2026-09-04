@@ -38,6 +38,8 @@ export interface CockpitBoardSettings {
   mobileDefaultColumn: string;
   labelColors: Record<string, string>;
   clearDateOnInProgress: boolean;
+  notifyLeadMinutes: string;
+  notifySystem: boolean;
   pomodoroEnabled: boolean;
   pomodoroWork: number;
   pomodoroShortBreak: number;

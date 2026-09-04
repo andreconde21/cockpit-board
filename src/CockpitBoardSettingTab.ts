@@ -103,6 +103,28 @@ export class CockpitBoardSettingTab extends PluginSettingTab {
         void this.plugin.saveSettings();
       }));
 
+    // ── Notifications ──
+    new Setting(containerEl).setName("Notifications").setHeading();
+
+    new Setting(containerEl)
+      .setName("Reminder lead times")
+      .setDesc("Minutes before a card's time to warn, comma separated (e.g. \"15,1\"). Each lead fires once per card per day. Checked every 30 seconds.")
+      .addText(t => t
+        .setPlaceholder("15,1")
+        .setValue(this.plugin.settings.notifyLeadMinutes)
+        .onChange(v => {
+          this.plugin.settings.notifyLeadMinutes = v;
+          void this.plugin.saveSettings();
+        }));
+
+    new Setting(containerEl)
+      .setName("Desktop notifications")
+      .setDesc("Also send a system notification, so reminders arrive when Obsidian is in the background.")
+      .addToggle(t => t.setValue(this.plugin.settings.notifySystem).onChange(v => {
+        this.plugin.settings.notifySystem = v;
+        void this.plugin.saveSettings();
+      }));
+
     // ── Auto-archive ──
     new Setting(containerEl).setName("Auto-archive").setHeading();
 

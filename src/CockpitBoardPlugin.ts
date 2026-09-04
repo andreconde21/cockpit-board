@@ -117,10 +117,11 @@ export default class CockpitBoardPlugin extends Plugin {
       if (this.settings.autoArchiveEnabled) void this.runAutoArchive();
     }, 3600000));
 
-    // Notification check every 5 minutes
+    // Notification check every 30 seconds — a one-minute lead time cannot
+    // fire reliably on a coarser tick.
     this.registerInterval(window.setInterval(() => {
       this.runNotifications();
-    }, 300000));
+    }, 30000));
   }
 
   onunload(): void {

@@ -26,6 +26,8 @@ export const DEFAULT_SETTINGS: CockpitBoardSettings = {
   mobileDefaultColumn: "in-progress",
   labelColors: {},
   clearDateOnInProgress: true,
+  notifyLeadMinutes: "15,1",
+  notifySystem: true,
   pomodoroEnabled: false,
   pomodoroWork: 25,
   pomodoroShortBreak: 5,

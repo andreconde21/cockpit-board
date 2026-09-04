@@ -12,7 +12,7 @@ A dynamic Kanban board for [Obsidian](https://obsidian.md) driven by frontmatter
 - **Checklist Editor** — Click the checklist count to open a drag-and-drop editor modal
 - **Archive Search** — Search completed tasks in a YYYY/MM/DD folder structure
 - **Auto-Archive** — Optionally move done cards into the archive folder after a configurable number of days
-- **Due-Soon Notifications** — Get notified 15 minutes before a task's scheduled time
+- **Due-Soon Notifications** — Configurable lead times (default 15 and 1 minutes before a task's time), with optional desktop notifications that reach you when Obsidian is in the background
 - **Mobile Optimized** — Tab-based column switching with swipe gestures
 - **Privacy Mode** — Blur card titles (hover to reveal) for screen sharing
 - **Focus Mode** — Show only Today + In Progress columns (press `F`)
@@ -136,6 +136,8 @@ Special frequencies: `biweekly-2nd-sat`, `monthly-1st-mon`.
 - **Archive folder** — Folder for archived tasks (YYYY/MM/DD structure)
 - **Auto-archive done cards** — Automatically move done cards into the archive folder once they've been completed for N days (also available as the "Archive done cards now" command)
 - **Recurring config path** — Path to `recurring.json`
+- **Reminder lead times** — Minutes before a card's time to warn, comma separated (default `15,1`). Each lead fires once per card per day
+- **Desktop notifications** — Also send a system notification, so reminders arrive when Obsidian is in the background (desktop only)
 - **Card open mode** — Split pane, sidebar, or modal
 - **Mobile default column** — Which column shows first on mobile
 - **Privacy mode** — Blur card titles
