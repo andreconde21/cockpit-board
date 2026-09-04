@@ -51,7 +51,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
-          gh release create "$TAG" \
-            --title "$TAG" \
-            --generate-notes \
-            main.js manifest.json styles.css
+          # Idempotent: a release may already exist for this tag (a retag, a
+          # re-run, or notes written by hand before the tag was pushed). Only
+          # the assets are authoritative here — they carry the provenance
+          # attestation from the step above — so upload over whatever is
+          # there rather than failing the run.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" --clobber main.js manifest.json styles.css
+          else
+            gh release create "$TAG" \
+              --title "$TAG" \
+              --generate-notes \
+              main.js manifest.json styles.css
+          fi
