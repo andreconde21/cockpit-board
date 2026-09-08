@@ -147,45 +147,30 @@ function searchArchive(fromDate: string, toDate: string, query: string, ctx: Arc
         const folderDate = new Date(year, month - 1, day);
         if (folderDate < from || folderDate > to) continue;
 
-        for (const file of dayFolder.children) {
-          if (!(file instanceof TFile) || file.extension !== "md") continue;
-          const cache = ctx.app.metadataCache.getFileCache(file);
-          const fm = cache?.frontmatter || {};
-          const title = fmStr(fm.title) || file.basename;
-          const project = fmStr(fm.project);
-          const labels = Array.isArray(fm.labels) ? fm.labels.filter((l): l is string => typeof l === "string") : [];
-          const completed = fmStr(fm.completed);
-          if (query) {
-            const searchable = `${title} ${project} ${labels.join(" ")}`.toLowerCase();
-            if (!searchable.includes(query)) continue;
-          }
-          results.push({ path: file.path, title, completed, project, labels });
-        }
+        collectResults(dayFolder, query, ctx, results);
       }
     }
   }
 
   for (const specialFolder of ["reference", "unknown"]) {
     const sf = ctx.app.vault.getAbstractFileByPath(`${ctx.settings.archiveFolder}/${specialFolder}`);
-    if (!sf || !(sf instanceof TFolder)) continue;
-    for (const file of sf.children) {
-      if (!(file instanceof TFile) || file.extension !== "md") continue;
-      const cache = ctx.app.metadataCache.getFileCache(file);
-      const fm = cache?.frontmatter || {};
-      const title = fmStr(fm.title) || file.basename;
-      const project = fmStr(fm.project);
-      const labels = Array.isArray(fm.labels) ? fm.labels.filter((l): l is string => typeof l === "string") : [];
-      const completed = fmStr(fm.completed);
-      if (query) {
-        const searchable = `${title} ${project} ${labels.join(" ")}`.toLowerCase();
-        if (!searchable.includes(query)) continue;
-      }
-      results.push({ path: file.path, title, completed, project, labels });
-    }
+    if (sf instanceof TFolder) collectResults(sf, query, ctx, results);
   }
 
   results.sort((a, b) => (b.completed || "").localeCompare(a.completed || ""));
   return results;
+}
+
+function collectResults(folder: TFolder, query: string, ctx: ArchiveContext, out: ArchiveResult[]): void {
+  for (const file of folder.children) {
+    if (!(file instanceof TFile) || file.extension !== "md") continue;
+    const fm = ctx.app.metadataCache.getFileCache(file)?.frontmatter || {};
+    const title = fmStr(fm.title) || file.basename;
+    const project = fmStr(fm.project);
+    const labels = Array.isArray(fm.labels) ? fm.labels.filter((l): l is string => typeof l === "string") : [];
+    if (query && !`${title} ${project} ${labels.join(" ")}`.toLowerCase().includes(query)) continue;
+    out.push({ path: file.path, title, completed: fmStr(fm.completed), project, labels });
+  }
 }
 
 export function loadArchiveCardsForRange(fromStr: string, toStr: string, ctx: ArchiveContext): CalendarCardData[] {

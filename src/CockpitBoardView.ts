@@ -2,7 +2,6 @@ import {
   ItemView, WorkspaceLeaf, TFile, TFolder, Menu, Modal,
   MarkdownRenderer, Notice, Platform, setIcon,
 } from "obsidian";
-import { ConfirmModal } from "./ui/confirm-modal";
 import type { CardData, CardFrontmatter, ColumnConfig, CalendarCardData, CockpitBoardSettings } from "./types";
 import { VIEW_TYPE } from "./constants";
 import { CockpitCard } from "./CockpitCard";
@@ -11,13 +10,14 @@ import { todayStr, getToday, getTomorrow, parseDate, formatDateLocal } from "./u
 import { createColumn, type ColumnRendererContext } from "./ui/column-renderer";
 import {
   toggleSelectCard, selectRange, clearSelection,
-  updateSelectionBar, showBulkMenu, type SelectionContext,
+  updateSelectionBar, showBulkMenu, bulkMarkDone, bulkDelete, type SelectionContext,
 } from "./ui/selection-manager";
 import { ChecklistEditorModal } from "./ui/checklist-editor";
 import { BulkDateTimePickerModal, DateTimePickerModal } from "./ui/date-time-picker";
 import { renderCalendarView, hideYearTooltip, type CalendarViewContext } from "./calendar/CalendarView";
 import { renderArchiveSearch, loadArchiveCardsForRange, type ArchiveContext } from "./archive/ArchiveSearch";
 import type CockpitBoardPlugin from "./CockpitBoardPlugin";
+import { getMarkdownFiles, isInFolder } from "./vault-helpers";
 
 export class CockpitBoardView extends ItemView {
   plugin: CockpitBoardPlugin;
@@ -44,7 +44,6 @@ export class CockpitBoardView extends ItemView {
   }
   _bulkOperating = false;
   ctrlHeld = false;
-  private _archiveSearchTimer: number | null = null;
   private _boardScrollLeft = 0;
   private _columnScrollTops: Record<string, number> = {};
 
@@ -64,10 +63,13 @@ export class CockpitBoardView extends ItemView {
   async onOpen(): Promise<void> {
     this.containerEl.addClass("cockpit-board-container");
     await this.render();
-    this.registerEvent(this.app.vault.on("create", () => this.debouncedRefresh()));
-    this.registerEvent(this.app.vault.on("delete", () => this.debouncedRefresh()));
-    this.registerEvent(this.app.vault.on("rename", () => this.debouncedRefresh()));
-    this.registerEvent(this.app.metadataCache.on("changed", () => this.debouncedRefresh()));
+    // Only changes under the tasks or archive folder can alter the board;
+    // a re-render reads every card file, so edits elsewhere in the vault
+    // must not trigger one.
+    this.registerEvent(this.app.vault.on("create", (f) => this.refreshIfRelevant(f.path)));
+    this.registerEvent(this.app.vault.on("delete", (f) => this.refreshIfRelevant(f.path)));
+    this.registerEvent(this.app.vault.on("rename", (f, oldPath) => this.refreshIfRelevant(f.path, oldPath)));
+    this.registerEvent(this.app.metadataCache.on("changed", (f) => this.refreshIfRelevant(f.path)));
 
     // Track Ctrl key state for Ctrl+drag date override
     this.registerDomEvent(activeDocument, "keydown", (e: KeyboardEvent) => {
@@ -94,6 +96,10 @@ export class CockpitBoardView extends ItemView {
     });
 
     this.registerDomEvent(activeDocument, "keydown", (e: KeyboardEvent) => {
+      // The listener is document-wide; only act while this board is the
+      // active view, otherwise "d" in a reading pane marks cards done.
+      if (this.app.workspace.getActiveViewOfType(CockpitBoardView) !== this) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       const target = e.target as HTMLElement;
       if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
       if (e.key === "Escape") { this.clearSelection(); return; }
@@ -105,6 +111,11 @@ export class CockpitBoardView extends ItemView {
           this.toast(this.focusMode ? "Focus mode: Today + In Progress" : "Focus mode off");
           return;
         }
+      }
+      if (e.key === "n" || e.key === "N") {
+        e.preventDefault();
+        void this.promptForTitle("New task").then(title => { if (title) void this.createCardInColumn(title, this.columns[0]); });
+        return;
       }
       if (this.selectedCards.size === 0) return;
       if (e.key === "d" || e.key === "D") {
@@ -124,11 +135,13 @@ export class CockpitBoardView extends ItemView {
       } else if (e.key === "Delete" || e.key === "Backspace") {
         e.preventDefault();
         this.bulkDelete();
-      } else if (e.key === "n" || e.key === "N") {
-        e.preventDefault();
-        void this.promptForTitle("New task").then(title => { if (title) void this.createCardInColumn(title, this.columns[0]); });
       }
     });
+  }
+
+  private refreshIfRelevant(...paths: string[]): void {
+    const { folder, archiveFolder } = this.settings;
+    if (paths.some(p => isInFolder(p, folder) || isInFolder(p, archiveFolder))) this.debouncedRefresh();
   }
 
   onClose(): Promise<void> {
@@ -149,19 +162,9 @@ export class CockpitBoardView extends ItemView {
     if (!this.settings.folder) return [];
     const folder = this.app.vault.getAbstractFileByPath(this.settings.folder);
     if (!folder || !(folder instanceof TFolder)) return [];
-    const raw: { file: TFile; fm: CardFrontmatter }[] = [];
-    const walk = (f: TFolder) => {
-      for (const child of f.children) {
-        if (child instanceof TFile && child.extension === "md") {
-          const cache = this.app.metadataCache.getFileCache(child);
-          raw.push({ file: child, fm: (cache?.frontmatter as CardFrontmatter) || {} });
-        } else if (child instanceof TFolder) walk(child);
-      }
-    };
-    walk(folder);
-
     const cards: CardData[] = [];
-    for (const { file, fm } of raw) {
+    for (const file of getMarkdownFiles(folder)) {
+      const fm = (this.app.metadataCache.getFileCache(file)?.frontmatter as CardFrontmatter | undefined) || {};
       const content = await this.app.vault.cachedRead(file);
       cards.push(new CockpitCard(file, fm, content, this.columns));
     }
@@ -342,7 +345,12 @@ export class CockpitBoardView extends ItemView {
       return;
     }
 
-    const overdueCount = cards.filter(c => c.column !== "done" && c.due && parseDate(c.due)! < getToday()).length;
+    const today = getToday();
+    const overdueCount = cards.filter(c => {
+      if (c.rawStatus === "done") return false;
+      const due = parseDate(c.due);
+      return due !== null && due < today;
+    }).length;
 
     if (this.isMobile) {
       this.renderMobile(contentEl, groups, overdueCount);
@@ -769,12 +777,19 @@ export class CockpitBoardView extends ItemView {
       const modal = new Modal(this.app);
       modal.titleEl.setText(heading);
       const input = modal.contentEl.createEl("input", { type: "text", placeholder: "Title...", cls: "cockpit-new-task-input" });
+      let settled = false;
+      const settle = (value: string | null) => {
+        if (settled) return;
+        settled = true;
+        resolve(value);
+      };
       input.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") { modal.close(); resolve(input.value.trim()); }
-        if (e.key === "Escape") { modal.close(); resolve(null); }
+        if (e.key === "Enter") { settle(input.value.trim() || null); modal.close(); }
+        if (e.key === "Escape") { settle(null); modal.close(); }
       });
       modal.onOpen = () => input.focus();
-      modal.onClose = () => { if (!input.value.trim()) resolve(null); };
+      // Clicking outside the modal is a cancel, whatever was typed.
+      modal.onClose = () => settle(null);
       modal.open();
     });
   }
@@ -793,38 +808,8 @@ export class CockpitBoardView extends ItemView {
     await this.app.vault.create(path, `---\ntitle: "${title.replace(/"/g, '\\"')}"\nstatus: ${status}\ndue: ${due}\ntime:\ncompleted:\nproject:\nlabels: ${labels}\ncreated: ${todayStr()}\nsource: manual\n---\n\n# ${title}\n`);
   }
 
-  private async bulkMarkDone(): Promise<void> {
-    this.pauseRefresh = true;
-    try {
-      for (const { card } of this.selectedCards.values()) {
-        await this.app.fileManager.processFrontMatter(card.file, (fm: CardFrontmatter) => {
-          fm.status = "done";
-          fm.completed = todayStr();
-        });
-      }
-    } finally {
-      this.pauseRefresh = false;
-      this.clearSelection();
-      void this.render();
-    }
-  }
-
-  private bulkDelete(): void {
-    new ConfirmModal(this.app, `Delete ${this.selectedCards.size} card(s)?`, () => {
-      void (async () => {
-        this.pauseRefresh = true;
-        try {
-          for (const { card } of this.selectedCards.values()) {
-            await this.app.fileManager.trashFile(card.file);
-          }
-        } finally {
-          this.pauseRefresh = false;
-          this.clearSelection();
-          void this.render();
-        }
-      })();
-    }).open();
-  }
+  private bulkMarkDone(): Promise<void> { return bulkMarkDone(this.getSelectionContext()); }
+  private bulkDelete(): void { bulkDelete(this.getSelectionContext()); }
 
   // ── Context builders ──
   private getColumnRendererContext(): ColumnRendererContext {

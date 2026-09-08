@@ -30,6 +30,23 @@ export function getTomorrow(): Date {
   return d;
 }
 
+/** Next Monday, always at least one day ahead (so on a Monday it is the following one). */
+export function nextWeekStr(): string {
+  const d = getToday();
+  const daysAhead = ((8 - d.getDay()) % 7) || 7;
+  d.setDate(d.getDate() + daysAhead);
+  return formatDateLocal(d);
+}
+
+/** Monday of the week containing `d`, at local midnight. */
+export function startOfWeek(d: Date): Date {
+  const mon = new Date(d);
+  mon.setHours(0, 0, 0, 0);
+  const day = mon.getDay();
+  mon.setDate(mon.getDate() - (day === 0 ? 6 : day - 1));
+  return mon;
+}
+
 export function parseDate(s: string): Date | null {
   if (!s) return null;
   const d = new Date(s + "T00:00:00");

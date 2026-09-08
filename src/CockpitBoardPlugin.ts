@@ -8,6 +8,7 @@ import { archiveDoneCards } from "./archive/AutoArchive";
 import { scheduleNotifications } from "./notifications";
 import { PomodoroEngine } from "./pomodoro";
 import { todayStr } from "./ui/dom-helpers.js";
+import { isInFolder } from "./vault-helpers";
 
 export default class CockpitBoardPlugin extends Plugin {
   settings!: CockpitBoardSettings;
@@ -96,7 +97,7 @@ export default class CockpitBoardPlugin extends Plugin {
 
     // Track deleted recurring tasks
     this.registerEvent(this.app.vault.on("delete", (file) => {
-      if (this.settings.folder && file.path?.startsWith(this.settings.folder) && file.name?.includes("-recurring")) {
+      if (isInFolder(file.path, this.settings.folder) && file.name.includes("-recurring")) {
         const slug = file.name.replace("-recurring.md", "");
         void this.dismissRecurringTask(slug);
       }

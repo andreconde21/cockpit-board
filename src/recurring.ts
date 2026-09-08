@@ -1,6 +1,7 @@
-import { App, TFile, TFolder, Notice } from "obsidian";
+import { App, TFile, Notice } from "obsidian";
 import type { CockpitBoardSettings, RecurringConfig } from "./types";
 import { formatDateLocal } from "./ui/dom-helpers.js";
+import { getMarkdownFilesAt } from "./vault-helpers";
 
 interface TodayInfo {
   year: number;
@@ -92,8 +93,10 @@ export async function checkRecurring(
       if (taskExistsForToday(slug, today.dateStr, activeFolder, app)) continue;
       if (dismissed[slug] === today.dateStr) continue;
 
-      const labels = (rule.labels || []).map(l => `"${l}"`).join(", ");
-      const content = `---\ntitle: "${cleanTitle.replace(/"/g, '\\"')}"\nstatus: scheduled\ndue: ${today.dateStr}\ntime:\ncompleted:\nproject: ${project}\nlabels: [${labels}]\ncreated: ${today.dateStr}\nsource: recurring\n---\n\n# ${cleanTitle}\n`;
+      // Quote free text so a project like "[[Client]]" or "Ops: infra"
+      // stays a string instead of turning into a YAML list or mapping.
+      const labels = (rule.labels || []).map(l => yamlStr(l)).join(", ");
+      const content = `---\ntitle: ${yamlStr(cleanTitle)}\nstatus: scheduled\ndue: ${today.dateStr}\ntime:\ncompleted:\nproject: ${project ? yamlStr(project) : ""}\nlabels: [${labels}]\ncreated: ${today.dateStr}\nsource: recurring\n---\n\n# ${cleanTitle}\n`;
 
       const filename = `${slug}-recurring.md`;
       const path = `${activeFolder}/${filename}`;
@@ -113,35 +116,23 @@ export async function checkRecurring(
   }
 }
 
+function yamlStr(s: string): string {
+  return `"${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
+// Matches the recurring file itself and anything derived from it
+// ("<slug>-recurring-cont-1"), but not an unrelated task whose slug merely
+// starts the same way ("review" vs "review-budget").
 function taskExistsForToday(
   slug: string,
   dateStr: string,
   folder: string,
   app: App,
 ): boolean {
-  const folderObj = app.vault.getAbstractFileByPath(folder);
-  if (!(folderObj instanceof TFolder)) return false;
-  for (const child of getMarkdownFiles(folderObj)) {
-    if (!(child instanceof TFile)) continue;
-    if (child.name.startsWith(slug) && child.extension === "md") {
-      const cache = app.metadataCache.getFileCache(child);
-      if (cache?.frontmatter?.due === dateStr) return true;
-    }
+  for (const child of getMarkdownFilesAt(app, folder)) {
+    if (child.basename !== slug && !child.basename.startsWith(`${slug}-`)) continue;
+    const cache = app.metadataCache.getFileCache(child);
+    if (cache?.frontmatter?.due === dateStr) return true;
   }
   return false;
-}
-
-function getMarkdownFiles(folder: TFolder): TFile[] {
-  const files: TFile[] = [];
-  const walk = (current: TFolder) => {
-    for (const child of current.children) {
-      if (child instanceof TFile && child.extension === "md") {
-        files.push(child);
-      } else if (child instanceof TFolder) {
-        walk(child);
-      }
-    }
-  };
-  walk(folder);
-  return files;
 }

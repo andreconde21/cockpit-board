@@ -1,5 +1,5 @@
 import type { CardData, CalendarCardData, CockpitBoardSettings } from "../types";
-import { formatDateLocal } from "../ui/dom-helpers.js";
+import { formatDateLocal, startOfWeek } from "../ui/dom-helpers.js";
 import { renderWeekView } from "./WeekView";
 import { renderMonthView } from "./MonthView";
 import { renderYearView, hideYearTooltip } from "./YearView";
@@ -38,9 +38,7 @@ export async function renderCalendarView(
   let rangeTo: string;
   const cd = ctx.calendarDate;
   if (ctx.calendarMode === "week") {
-    const day = cd.getDay();
-    const mon = new Date(cd);
-    mon.setDate(cd.getDate() - (day === 0 ? 6 : day - 1));
+    const mon = startOfWeek(cd);
     const sun = new Date(mon);
     sun.setDate(mon.getDate() + 6);
     rangeFrom = formatDateLocal(mon);
@@ -88,10 +86,7 @@ export async function renderCalendarView(
 
   const dateLabel = controls.createSpan({ cls: "cockpit-cal-date-label" });
   if (ctx.calendarMode === "week") {
-    const d = new Date(ctx.calendarDate);
-    const day = d.getDay();
-    const monday = new Date(d);
-    monday.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+    const monday = startOfWeek(ctx.calendarDate);
     const sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
     dateLabel.textContent = `${monday.toLocaleDateString("en-US", { month: "short", day: "numeric" })} \u2013 ${sunday.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;

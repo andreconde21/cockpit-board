@@ -1,6 +1,6 @@
 import { Menu } from "obsidian";
 import type { CardData, ColumnConfig } from "../types";
-import { parseDate } from "./dom-helpers";
+import { parseDate, startOfWeek } from "./dom-helpers";
 import { createCard } from "./card-renderer";
 
 export function createColumn(col: ColumnConfig, cards: CardData[], overdueCount: number, ctx: ColumnRendererContext): HTMLElement {
@@ -38,9 +38,7 @@ export function createColumn(col: ColumnConfig, cards: CardData[], overdueCount:
       if (card.due) {
         const due = parseDate(card.due);
         if (due) {
-          const dayOfWeek = due.getDay() === 0 ? 6 : due.getDay() - 1;
-          const mon = new Date(due);
-          mon.setDate(mon.getDate() - dayOfWeek);
+          const mon = startOfWeek(due);
           const weekKey = `${mon.getFullYear()}-${mon.getMonth()}-${mon.getDate()}`;
           if (weekKey !== currentWeek) {
             currentWeek = weekKey;

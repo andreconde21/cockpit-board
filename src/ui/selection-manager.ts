@@ -1,7 +1,7 @@
 import { Menu, App, TFile } from "obsidian";
 import type { CardData, CardFrontmatter, ColumnConfig, CockpitBoardSettings } from "../types";
 import { ConfirmModal } from "./confirm-modal";
-import { todayStr, getToday, getTomorrow, formatDateLocal } from "./dom-helpers";
+import { todayStr, getTomorrow, formatDateLocal, nextWeekStr } from "./dom-helpers";
 
 export interface SelectionContext {
   containerEl: HTMLElement;
@@ -141,11 +141,7 @@ export function showBulkMenu(e: MouseEvent, ctx: SelectionContext): void {
   menu.addItem((i) => i.setTitle("Set due tomorrow").setIcon("calendar-plus")
     .onClick(() => void bulkSetDate(formatDateLocal(getTomorrow()), ctx)));
   menu.addItem((i) => i.setTitle("Set due next week").setIcon("calendar-range")
-    .onClick(() => {
-      const d = getToday();
-      d.setDate(d.getDate() + (8 - d.getDay()) % 7 || 7);
-      void bulkSetDate(formatDateLocal(d), ctx);
-    }));
+    .onClick(() => void bulkSetDate(nextWeekStr(), ctx)));
   menu.addItem((i) => i.setTitle("Clear due dates").setIcon("calendar-x").onClick(() => void bulkClearDueDate(ctx)));
   menu.addSeparator();
   const selectedLabels = new Set<string>();
@@ -252,7 +248,7 @@ async function bulkClearDueDate(ctx: SelectionContext): Promise<void> {
   }
 }
 
-async function bulkMarkDone(ctx: SelectionContext): Promise<void> {
+export async function bulkMarkDone(ctx: SelectionContext): Promise<void> {
   ctx.pauseRefresh = true;
   try {
     for (const { card } of ctx.selectedCards.values()) {
@@ -268,7 +264,7 @@ async function bulkMarkDone(ctx: SelectionContext): Promise<void> {
   }
 }
 
-function bulkDelete(ctx: SelectionContext): void {
+export function bulkDelete(ctx: SelectionContext): void {
   new ConfirmModal(ctx.app, `Delete ${ctx.selectedCards.size} card(s)?`, () => {
     void (async () => {
       ctx.pauseRefresh = true;

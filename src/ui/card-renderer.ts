@@ -1,7 +1,7 @@
 import { App, Menu, TFile } from "obsidian";
 import { ConfirmModal } from "./confirm-modal";
 import type { CardData, CardFrontmatter, ColumnConfig, CockpitBoardSettings, TimerData } from "../types";
-import { getToday, getTomorrow, datePillClass, formatDueDisplay, getLabelColor, formatDateLocal } from "./dom-helpers";
+import { getTomorrow, datePillClass, formatDueDisplay, getLabelColor, formatDateLocal, nextWeekStr } from "./dom-helpers";
 
 export interface CardRendererContext {
   settings: CockpitBoardSettings;
@@ -288,11 +288,7 @@ function showCardContextMenu(e: MouseEvent, card: CardData, ctx: CardRendererCon
   menu.addItem((i) => i.setTitle("Set due tomorrow").setIcon("calendar-plus")
     .onClick(() => { void ctx.updateCardProperty(card.file, { status: "scheduled", due: formatDateLocal(getTomorrow()) }); }));
   menu.addItem((i) => i.setTitle("Set due next week").setIcon("calendar-range")
-    .onClick(() => {
-      const d = getToday();
-      d.setDate(d.getDate() + (8 - d.getDay()) % 7 || 7);
-      void ctx.updateCardProperty(card.file, { status: "scheduled", due: formatDateLocal(d) });
-    }));
+    .onClick(() => { void ctx.updateCardProperty(card.file, { status: "scheduled", due: nextWeekStr() }); }));
   menu.addItem((i) => i.setTitle("Set date & time...").setIcon("calendar-clock")
     .onClick(() => ctx.promptDateTime(card)));
 

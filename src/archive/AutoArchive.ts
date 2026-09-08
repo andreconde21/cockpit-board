@@ -1,6 +1,7 @@
-import { App, TFile, TFolder, normalizePath } from "obsidian";
+import { App, normalizePath } from "obsidian";
 import type { CockpitBoardSettings } from "../types";
 import { fmStr, formatDateLocal } from "../ui/dom-helpers.js";
+import { getMarkdownFilesAt } from "../vault-helpers";
 
 export interface AutoArchiveResult {
   moved: number;
@@ -18,24 +19,12 @@ export async function archiveDoneCards(app: App, settings: CockpitBoardSettings)
   const result: AutoArchiveResult = { moved: 0, skipped: 0 };
   if (!settings.folder || !settings.archiveFolder) return result;
 
-  const folder = app.vault.getAbstractFileByPath(settings.folder);
-  if (!(folder instanceof TFolder)) return result;
-
   const archivePrefix = normalizePath(settings.archiveFolder) + "/";
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - Math.max(0, settings.autoArchiveAfterDays || 0));
   const cutoffStr = formatDateLocal(cutoff);
 
-  const files: TFile[] = [];
-  const walk = (f: TFolder) => {
-    for (const child of f.children) {
-      if (child instanceof TFile && child.extension === "md") files.push(child);
-      else if (child instanceof TFolder) walk(child);
-    }
-  };
-  walk(folder);
-
-  for (const file of files) {
+  for (const file of getMarkdownFilesAt(app, settings.folder)) {
     // Guard against an archive folder nested inside the tasks folder
     if (file.path.startsWith(archivePrefix)) continue;
 

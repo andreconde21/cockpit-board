@@ -1,6 +1,7 @@
-import { App, TFile, TFolder, Notice } from "obsidian";
+import { App, Notice } from "obsidian";
 import type { CockpitBoardSettings } from "./types";
 import { fmStr, formatDateLocal } from "./ui/dom-helpers.js";
+import { getMarkdownFilesAt } from "./vault-helpers";
 
 const DEFAULT_LEADS = [15, 1];
 
@@ -21,20 +22,21 @@ export function scheduleNotifications(
   notifiedToday: Set<string>,
   app: App,
 ): void {
-  if (!settings.folder) return;
-  const folder = app.vault.getAbstractFileByPath(settings.folder);
-  if (!folder || !(folder instanceof TFolder)) return;
-
   const now = new Date();
   const todayStr = formatDateLocal(now);
   const leads = parseLeadMinutes(settings.notifyLeadMinutes);
 
-  for (const child of getMarkdownFiles(folder)) {
-    if (!(child instanceof TFile) || child.extension !== "md") continue;
+  // Keys carry the date, so yesterday's entries are dead weight in a
+  // long-running session.
+  for (const key of notifiedToday) {
+    if (!key.includes(`-${todayStr}-`)) notifiedToday.delete(key);
+  }
+
+  for (const child of getMarkdownFilesAt(app, settings.folder)) {
     const cache = app.metadataCache.getFileCache(child);
     const fm = cache?.frontmatter;
-    if (!fm || fm.status === "done") continue;
-    if (fm.due !== todayStr || !fm.time) continue;
+    if (!fm || fmStr(fm.status) === "done") continue;
+    if (fmStr(fm.due) !== todayStr || !fm.time) continue;
 
     const timeStr = fmStr(fm.time);
     const [h, m] = timeStr.split(":").map(Number);
@@ -82,19 +84,4 @@ function systemNotify(body: string, timeStr: string): void {
   } catch {
     // Desktop notifications are best-effort; the Notice already fired.
   }
-}
-
-function getMarkdownFiles(folder: TFolder): TFile[] {
-  const files: TFile[] = [];
-  const walk = (current: TFolder) => {
-    for (const child of current.children) {
-      if (child instanceof TFile && child.extension === "md") {
-        files.push(child);
-      } else if (child instanceof TFolder) {
-        walk(child);
-      }
-    }
-  };
-  walk(folder);
-  return files;
 }

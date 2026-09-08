@@ -1,5 +1,5 @@
 import type { CalendarCardData, CockpitBoardSettings } from "../types";
-import { todayStr, getLabelColor, formatDateLocal } from "../ui/dom-helpers";
+import { todayStr, getLabelColor, formatDateLocal, startOfWeek } from "../ui/dom-helpers";
 
 export function renderWeekView(
   container: HTMLElement,
@@ -8,10 +8,7 @@ export function renderWeekView(
   settings: CockpitBoardSettings,
   openCard: (card: CalendarCardData) => void,
 ): void {
-  const d = new Date(calendarDate);
-  const day = d.getDay();
-  const monday = new Date(d);
-  monday.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+  const monday = startOfWeek(calendarDate);
   const today = todayStr();
 
   const allDayRow = container.createDiv({ cls: "cockpit-cal-allday" });
@@ -46,8 +43,20 @@ export function renderWeekView(
     }
   }
 
+  // Working hours by default, stretched so an early or late card is never
+  // silently dropped off the grid.
+  let firstHour = 7;
+  let lastHour = 22;
+  for (const c of cards) {
+    if (!c.time || !c.due || c.due > dates[6] || (c.dueEnd || c.due) < dates[0]) continue;
+    const h = parseInt(c.time, 10);
+    if (isNaN(h) || h < 0 || h > 23) continue;
+    firstHour = Math.min(firstHour, h);
+    lastHour = Math.max(lastHour, h);
+  }
+
   const timeGrid = container.createDiv({ cls: "cockpit-cal-timegrid" });
-  for (let hour = 7; hour <= 22; hour++) {
+  for (let hour = firstHour; hour <= lastHour; hour++) {
     const row = timeGrid.createDiv({ cls: "cockpit-cal-timerow" });
     const label = row.createDiv({ cls: "cockpit-cal-time-gutter" });
     label.textContent = `${hour}:00`;
