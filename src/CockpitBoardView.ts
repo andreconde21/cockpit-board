@@ -18,6 +18,7 @@ import { renderCalendarView, hideYearTooltip, type CalendarViewContext } from ".
 import { renderArchiveSearch, loadArchiveCardsForRange, type ArchiveContext } from "./archive/ArchiveSearch";
 import type CockpitBoardPlugin from "./CockpitBoardPlugin";
 import { getMarkdownFiles, isInFolder } from "./vault-helpers";
+import { nextDerivedPath, type DerivedSuffix } from "./card-naming";
 
 export class CockpitBoardView extends ItemView {
   plugin: CockpitBoardPlugin;
@@ -680,25 +681,22 @@ export class CockpitBoardView extends ItemView {
     } catch { new Notice("Error updating card"); }
   }
 
-  // Builds the next available sibling path for a derived note, stripping any
-  // existing chain of the same suffix so repeated duplicate/split actions
-  // don't produce "task-cont-cont-cont-..." filenames. Numbers start at 1.
-  private nextSiblingPath(originalPath: string, suffix: string): string {
-    const stripped = originalPath.replace(/\.md$/, "");
-    const cleanBase = stripped.replace(new RegExp(`(?:-${suffix}(?:-\\d+)?)+$`), "");
-    let n = 1;
-    let path = `${cleanBase}-${suffix}-${n}.md`;
-    while (this.app.vault.getAbstractFileByPath(path)) {
-      n++;
-      path = `${cleanBase}-${suffix}-${n}.md`;
-    }
-    return path;
+  // Path for a card derived from `card` (duplicate: "-copy-N", split:
+  // "-cont-N"); see nextDerivedPath for how the name stays bounded. N skips
+  // basenames used anywhere in the vault, not just this folder: done cards
+  // move to dated archive folders, where a reused name would block
+  // auto-archive and make [[links]] ambiguous. Compared case-insensitively
+  // because mobile, macOS and Windows filesystems are.
+  private derivedCardPath(card: CardData, suffix: DerivedSuffix): string {
+    const taken = new Set(this.app.vault.getMarkdownFiles().map((f) => f.basename.toLowerCase()));
+    return nextDerivedPath(card.file.path, suffix, (path, basename) =>
+      taken.has(basename.toLowerCase()) || this.app.vault.getAbstractFileByPath(path) !== null);
   }
 
   async duplicateCard(card: CardData): Promise<void> {
     try {
       const content = await this.app.vault.read(card.file);
-      const path = this.nextSiblingPath(card.file.path, "copy");
+      const path = this.derivedCardPath(card, "copy");
       const newFile = await this.app.vault.create(path, content);
       // Reset status/completed but preserve everything else (labels, project, etc.)
       await this.app.fileManager.processFrontMatter(newFile, (fm: CardFrontmatter) => {
@@ -706,7 +704,10 @@ export class CockpitBoardView extends ItemView {
         fm.completed = "";
         delete fm.order;
       });
-    } catch { new Notice("Error duplicating card"); }
+    } catch (e: unknown) {
+      console.error("Cockpit Board: duplicate failed", e);
+      new Notice(`Error duplicating card: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
 
   async splitAndCloseCard(card: CardData): Promise<void> {
@@ -757,7 +758,7 @@ export class CockpitBoardView extends ItemView {
       const origFmMatch = origContent.match(/^---\n([\s\S]*?)\n---/);
       const origFmBlock = origFmMatch ? origFmMatch[0] : frontmatter;
       const newContent = origFmBlock + "\n" + newBodyLines.join("\n");
-      const path = this.nextSiblingPath(card.file.path, "cont");
+      const path = this.derivedCardPath(card, "cont");
       const newFile = await this.app.vault.create(path, newContent);
       // Reset status/completed but keep labels, project, etc.
       await this.app.fileManager.processFrontMatter(newFile, (fm: CardFrontmatter) => {
@@ -767,8 +768,8 @@ export class CockpitBoardView extends ItemView {
       });
       this.toast("Split: original \u2192 Done, new card with remaining items");
     } catch (e: unknown) {
-      console.error("Cockpit Board:", e);
-      new Notice("Error splitting card");
+      console.error("Cockpit Board: split failed", e);
+      new Notice(`Error splitting card: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
