@@ -46,4 +46,72 @@ cutting the release.
 ## [1.0.9] - 2026-09-08
 
 ### Fixed
-- Keyboard shortcut, date handling, and rendering fixes.
+- **Set due next week** picked *today* on Mondays; card and bulk menus now
+  agree on the following Monday.
+- **N (new card)** works whenever the board is active, not just with a
+  selection.
+- Board shortcuts (`F`, `D`, `T`, `N`, `Delete`) no longer fire while another
+  pane is active.
+- Overdue badge no longer counts cards with unparsable due dates.
+- Week view stretches past 07:00–22:00 for early/late cards.
+- Recurring tasks quote `project`/`labels` YAML (fixes values like
+  `[[Client]]` or `Ops: infra`) and dedupe no longer matches unrelated
+  filename prefixes.
+
+### Changed
+- Board only re-renders on changes inside the tasks/archive folders, not on
+  any vault change.
+
+## [1.0.8] - 2026-09-04
+
+### Added
+- Configurable reminder lead times (default `15,1`), each firing once per
+  card per day, checked every 30 seconds.
+- Optional desktop notifications so reminders arrive with Obsidian in the
+  background.
+
+## [1.0.7] - 2026-09-01
+
+### Added
+- Optional auto-archive of done cards into the archive folder.
+
+## [1.0.6] - 2026-08-20
+
+### Fixed
+- Card title and bulk interaction fixes.
+
+## [1.0.5] - 2026-06-18
+
+### Fixed
+- Portal review-blocking errors.
+
+## [1.0.4] - 2026-06-16
+
+### Fixed
+- Scorecard risks/warnings: timers, document handling, deprecations.
+
+## [1.0.3] - 2026-06-08
+
+### Fixed
+- Scorecard warnings from `text-decoration` usage.
+
+## [1.0.2] - 2026-05-27
+
+### Added
+- `CONTRIBUTING.md`.
+
+### Changed
+- Minimum app version bumped to 1.5.0.
+
+## [1.0.1] - 2026-05-26
+
+### Fixed
+- Drag-and-drop reliability: atomic frontmatter writes, metadata-cache sync,
+  scroll preservation, and refresh gating.
+- CI install fixes (peer deps, pinned provenance action).
+
+## [1.0.0] - 2026-04-01
+
+### Added
+- Initial release: dynamic Kanban board for Obsidian driven by frontmatter
+  properties.
