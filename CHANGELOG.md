@@ -34,8 +34,8 @@ cutting the release.
   button; auto-sync on startup, hourly, and on a configurable interval.
 - Chronological time ordering within day columns (all-day cards first;
   explicit drag order still wins).
-- Case-insensitive label color matching (`Comparis` reuses the `COMPARIS`
-  color).
+- Case-insensitive label color matching (`ClientAcme` reuses the
+  `CLIENTACME` color).
 
 ## [1.0.10] - 2026-09-10
 
