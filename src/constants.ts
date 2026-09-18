@@ -17,6 +17,8 @@ export const DEFAULT_SETTINGS: CockpitBoardSettings = {
   autoArchiveEnabled: false,
   autoArchiveAfterDays: 7,
   recurringConfigPath: "",
+  externalCalendars: [],
+  externalSyncIntervalMinutes: 60,
   columns: DEFAULT_COLUMNS,
   enableCustomOrder: true,
   cardLabelTint: false,

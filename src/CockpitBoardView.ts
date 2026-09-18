@@ -199,10 +199,15 @@ export class CockpitBoardView extends ItemView {
           const dateComp = (a.due || "9").localeCompare(b.due || "9");
           if (dateComp !== 0) return dateComp;
           if (useOrder) {
-            if (a.order != null && b.order != null) return a.order - b.order;
-            if (a.order != null) return -1;
-            if (b.order != null) return 1;
+            if (a.order != null && b.order != null) {
+              const orderComp = a.order - b.order;
+              if (orderComp !== 0) return orderComp;
+            } else if (a.order != null) return -1;
+            else if (b.order != null) return 1;
           }
+          // Same day: chronological by time (all-day cards first), then title.
+          const timeComp = (a.time || "").localeCompare(b.time || "");
+          if (timeComp !== 0) return timeComp;
           return a.displayTitle.localeCompare(b.displayTitle);
         });
       } else if (useOrder) {
@@ -211,7 +216,12 @@ export class CockpitBoardView extends ItemView {
           if (a.order != null) return -1;
           if (b.order != null) return 1;
           if (isDone) return (b.completed || "").localeCompare(a.completed || "");
-          if (a.due && b.due) return a.due.localeCompare(b.due);
+          if (a.due && b.due) {
+            const dateComp = a.due.localeCompare(b.due);
+            if (dateComp !== 0) return dateComp;
+            const timeComp = (a.time || "").localeCompare(b.time || "");
+            if (timeComp !== 0) return timeComp;
+          }
           if (a.due) return -1;
           if (b.due) return 1;
           return a.displayTitle.localeCompare(b.displayTitle);

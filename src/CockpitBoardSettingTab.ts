@@ -254,6 +254,52 @@ export class CockpitBoardSettingTab extends PluginSettingTab {
         }
       })(); }));
 
+    // ── External calendars (Outlook / ICS) ──
+    new Setting(containerEl).setName("External calendars").setHeading();
+    new Setting(containerEl)
+      .setDesc("One-way editable import: new events become cards in your tasks folder with the label you choose. Imported cards are never overwritten, so your edits are safe. Skipped automatically: cancelled events, subjects starting with “Canceled:”/“Cancelled:”, and blocks with no title.");
+
+    new Setting(containerEl)
+      .setName("How to get the Outlook link")
+      .setDesc("Outlook on the web: Calendar > Share > Publish > copy the ICS link. Outlook desktop: Calendar > Publish Online > copy the link. Or export a .ics file into your vault and put its path below instead of a URL.");
+
+    new Setting(containerEl)
+      .setName("Sync interval (minutes)")
+      .setDesc("How often enabled calendars import new events. Minimum 5. Also syncs hourly and on startup.")
+      .addText(t => t.setValue(String(this.plugin.settings.externalSyncIntervalMinutes || 60)).onChange(v => {
+        const n = parseInt(v);
+        if (!isNaN(n) && n >= 5) {
+          this.plugin.settings.externalSyncIntervalMinutes = n;
+          void this.plugin.saveSettings();
+        }
+      }));
+
+    const extEl = containerEl.createDiv({ cls: "cockpit-settings-external" });
+    this.renderExternalCalendarList(extEl);
+
+    new Setting(containerEl).addButton(btn => btn.setButtonText("+ add calendar").setCta()
+      .onClick(() => { void (async () => {
+        this.plugin.settings.externalCalendars.push({
+          id: `ext-${Date.now()}`,
+          name: "Client calendar",
+          url: "",
+          filePath: "",
+          label: "",
+          project: "",
+          timeZone: "",
+          onDisappear: "keep",
+          enabled: true,
+          daysBack: 7,
+          daysAhead: 60,
+        });
+        await this.plugin.saveSettings();
+        this.renderExternalCalendarList(extEl);
+      })(); }));
+
+    new Setting(containerEl).addButton(btn => btn.setButtonText("Sync external calendars now").onClick(() => {
+      void this.plugin.syncExternalCalendars(true);
+    }));
+
     // ── Recurring tasks ──
     if (this.plugin.settings.recurringConfigPath) {
       new Setting(containerEl).setName("Recurring tasks").setHeading();
@@ -352,5 +398,110 @@ export class CockpitBoardSettingTab extends PluginSettingTab {
         this.renderLabelColorList(containerEl);
       })(); });
     }
+  }
+
+  private renderExternalCalendarList(containerEl: HTMLElement): void {
+    containerEl.empty();
+    const sources = this.plugin.settings.externalCalendars || [];
+    if (sources.length === 0) {
+      containerEl.createEl("p", {
+        text: "No external calendars yet. Add one for your client Outlook calendar, set its label, then sync.",
+        cls: "setting-item-description",
+      });
+      return;
+    }
+
+    sources.forEach((src, idx) => {
+      const card = containerEl.createDiv({ cls: "cockpit-settings-external-card" });
+
+      const head = card.createDiv({ cls: "cockpit-settings-column-row" });
+      const enabledInput = head.createEl("input", { type: "checkbox" });
+      enabledInput.checked = src.enabled !== false;
+      enabledInput.title = "Enabled";
+      enabledInput.addEventListener("change", () => {
+        src.enabled = enabledInput.checked;
+        void this.plugin.saveSettings();
+      });
+      const nameInput = head.createEl("input", {
+        type: "text", cls: "cockpit-settings-name", placeholder: "Calendar name (e.g. Client Acme)",
+      });
+      nameInput.value = src.name || "";
+      nameInput.addEventListener("change", () => { src.name = nameInput.value; void this.plugin.saveSettings(); });
+      const delBtn = head.createEl("button", { text: "\u2715", cls: "clickable-icon cockpit-settings-delete" });
+      delBtn.title = "Remove calendar";
+      delBtn.addEventListener("click", () => { void (async () => {
+        sources.splice(idx, 1);
+        await this.plugin.saveSettings();
+        this.renderExternalCalendarList(containerEl);
+      })(); });
+
+      const urlRow = new Setting(card)
+        .setName("ICS URL")
+        .setDesc("Published Outlook ICS link (https:// or webcal://). Leave empty to use a vault file instead.");
+      urlRow.addText(t => t.setPlaceholder("https://outlook.office365.com/owa/calendar/…/calendar.ics")
+        .setValue(src.url || "").onChange(v => { src.url = v; void this.plugin.saveSettings(); }));
+
+      const fileRow = new Setting(card)
+        .setName("ICS file")
+        .setDesc("Vault path (e.g. Calendars/client.ics) or, on desktop, an absolute path like ~/Downloads/client.ics.");
+      fileRow.addText(t => t.setPlaceholder("Calendars/client.ics")
+        .setValue(src.filePath || "").onChange(v => { src.filePath = v; void this.plugin.saveSettings(); }));
+
+      const labelRow = new Setting(card)
+        .setName("Label")
+        .setDesc("Applied to every imported card. Cards stay in your tasks folder — filter by this label.");
+      labelRow.addText(t => t.setPlaceholder("ClientAcme")
+        .setValue(src.label || "").onChange(v => { src.label = v; void this.plugin.saveSettings(); }));
+
+      const projectRow = new Setting(card)
+        .setName("Project")
+        .setDesc("Set on every imported card. Shown as a [Project] prefix. Leave empty for none.");
+      projectRow.addText(t => t.setPlaceholder("ClientAcme")
+        .setValue(src.project || "").onChange(v => { src.project = v; void this.plugin.saveSettings(); }));
+
+      const tzRow = new Setting(card)
+        .setName("Source timezone")
+        .setDesc("IANA zone the calendar lives in (e.g. Europe/Zurich). Times convert to your device time. Leave empty when the calendar is already in your time.");
+      tzRow.addText(t => t.setPlaceholder("Europe/Zurich")
+        .setValue(src.timeZone || "").onChange(v => { src.timeZone = v; void this.plugin.saveSettings(); }));
+
+      const goneRow = new Setting(card)
+        .setName("When events disappear")
+        .setDesc("An event deleted in Outlook leaves no trace. Keep the card, mark it done, or delete it. Only applies inside the sync window.");
+      goneRow.addDropdown(d => d
+        .addOption("keep", "Keep the card")
+        .addOption("done", "Mark done")
+        .addOption("delete", "Delete the card")
+        .setValue(src.onDisappear || "keep")
+        .onChange(v => {
+          src.onDisappear = v as "keep" | "done" | "delete";
+          void this.plugin.saveSettings();
+        }));
+
+      const windowRow = new Setting(card).setName("Sync window").setDesc("Days back / ahead to import.");
+      windowRow.addText(t => {
+        t.inputEl.type = "number";
+        t.inputEl.style.width = "70px";
+        t.setValue(String(src.daysBack ?? 7)).onChange(v => {
+          const n = parseInt(v);
+          if (!isNaN(n) && n >= 0 && n <= 365) { src.daysBack = n; void this.plugin.saveSettings(); }
+        });
+      });
+      windowRow.addText(t => {
+        t.inputEl.type = "number";
+        t.inputEl.style.width = "70px";
+        t.setValue(String(src.daysAhead ?? 60)).onChange(v => {
+          const n = parseInt(v);
+          if (!isNaN(n) && n >= 1 && n <= 730) { src.daysAhead = n; void this.plugin.saveSettings(); }
+        });
+      });
+
+      if (src.lastSync) {
+        card.createEl("p", {
+          text: `Last sync: ${src.lastSync}`,
+          cls: "setting-item-description",
+        });
+      }
+    });
   }
 }

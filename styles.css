@@ -364,6 +364,14 @@ body.is-mobile.is-mobile .cockpit-mobile-column-area .cockpit-column.cockpit-col
   font-size: 0.8rem;
 }
 
+.cockpit-settings-external-card {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  background: var(--background-secondary);
+}
+
 /* ── Card selection ───────────────────────────────────────── */
 
 .cockpit-card.cockpit-card-selected {

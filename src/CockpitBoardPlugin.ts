@@ -5,6 +5,7 @@ import { CockpitBoardView } from "./CockpitBoardView";
 import { CockpitBoardSettingTab } from "./CockpitBoardSettingTab";
 import { checkRecurring } from "./recurring";
 import { archiveDoneCards } from "./archive/AutoArchive";
+import { syncAllExternalCalendars, type ExternalSeenMap } from "./external-calendar/sync";
 import { scheduleNotifications } from "./notifications";
 import { PomodoroEngine } from "./pomodoro";
 import { todayStr } from "./ui/dom-helpers.js";
@@ -15,6 +16,9 @@ export default class CockpitBoardPlugin extends Plugin {
   activeTimers = new Map<string, TimerData>();
   pomodoro!: PomodoroEngine;
   private _dismissedRecurring: Record<string, string> = {};
+  private _externalSeen: ExternalSeenMap = {};
+  private _externalSyncing = false;
+  private _lastExternalSyncMs = 0;
   private _notifiedToday = new Set<string>();
   private _statusBarEl: HTMLElement | null = null;
 
@@ -73,6 +77,12 @@ export default class CockpitBoardPlugin extends Plugin {
       callback: () => { void this.runAutoArchive(true); },
     });
 
+    this.addCommand({
+      id: "sync-external-calendars",
+      name: "Sync external calendars now",
+      callback: () => { void this.syncExternalCalendars(true); },
+    });
+
     this.addRibbonIcon("layout-grid", "Cockpit board", () => { void this.activateView(); });
     this.addSettingTab(new CockpitBoardSettingTab(this.app, this));
 
@@ -108,6 +118,7 @@ export default class CockpitBoardPlugin extends Plugin {
         void this.checkRecurring();
         this.runNotifications();
         if (this.settings.autoArchiveEnabled) void this.runAutoArchive();
+        void this.syncExternalCalendars(false);
       });
     });
 
@@ -116,7 +127,17 @@ export default class CockpitBoardPlugin extends Plugin {
       void this.checkRecurring();
       this.runNotifications();
       if (this.settings.autoArchiveEnabled) void this.runAutoArchive();
+      void this.syncExternalCalendars(false);
     }, 3600000));
+
+    // External calendar ticker — honors the configured interval without
+    // re-registering when settings change. Checked every minute.
+    this.registerInterval(window.setInterval(() => {
+      const minutes = Math.max(5, this.settings.externalSyncIntervalMinutes || 60);
+      if (Date.now() - this._lastExternalSyncMs >= minutes * 60000) {
+        void this.syncExternalCalendars(false);
+      }
+    }, 60000));
 
     // Notification check every 30 seconds — a one-minute lead time cannot
     // fire reliably on a coarser tick.
@@ -200,6 +221,36 @@ export default class CockpitBoardPlugin extends Plugin {
     }
   }
 
+  // ── External calendars (one-way editable import) ──
+  async syncExternalCalendars(manual = false): Promise<void> {
+    const sources = this.settings.externalCalendars || [];
+    if (!sources.some((s) => s.enabled && (s.url.trim() || s.filePath.trim()))) {
+      if (manual) new Notice("Add an external calendar in settings first (ICS URL or .ics file).");
+      return;
+    }
+    if (!this.settings.folder) {
+      if (manual) new Notice("Set a tasks folder in settings first.");
+      return;
+    }
+    if (this._externalSyncing) return;
+    this._externalSyncing = true;
+    try {
+      const results = await syncAllExternalCalendars(this.app, this.settings, this._externalSeen, {
+        notify: manual,
+      });
+      this._lastExternalSyncMs = Date.now();
+      await this.saveExternalSeen();
+      await this.saveSettings();
+      const created = results.reduce((n, r) => n + r.created, 0);
+      if (created > 0) {
+        const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
+        if (leaf?.view) void (leaf.view as CockpitBoardView).render();
+      }
+    } finally {
+      this._externalSyncing = false;
+    }
+  }
+
   // ── Auto-archive ──
   async runAutoArchive(manual = false): Promise<void> {
     if (!this.settings.folder || !this.settings.archiveFolder) {
@@ -227,8 +278,10 @@ export default class CockpitBoardPlugin extends Plugin {
     try {
       const data = (await this.loadData()) as Record<string, unknown> | null;
       this._dismissedRecurring = (data?._dismissedRecurring as Record<string, string>) || {};
+      this._externalSeen = (data?._externalSeen as ExternalSeenMap) || {};
     } catch {
       this._dismissedRecurring = {};
+      this._externalSeen = {};
     }
     const today = todayStr();
     for (const key of Object.keys(this._dismissedRecurring)) {
@@ -239,6 +292,12 @@ export default class CockpitBoardPlugin extends Plugin {
   private async saveDismissedRecurring(): Promise<void> {
     const data = ((await this.loadData()) as Record<string, unknown> | null) || {};
     data._dismissedRecurring = this._dismissedRecurring;
+    await this.saveData(data);
+  }
+
+  private async saveExternalSeen(): Promise<void> {
+    const data = ((await this.loadData()) as Record<string, unknown> | null) || {};
+    data._externalSeen = this._externalSeen;
     await this.saveData(data);
   }
 
@@ -256,17 +315,40 @@ export default class CockpitBoardPlugin extends Plugin {
       saved,
     ) as CockpitBoardSettings;
     delete (this.settings as unknown as Record<string, unknown>)._dismissedRecurring;
+    delete (this.settings as unknown as Record<string, unknown>)._externalSeen;
 
     if (!this.settings.columns || this.settings.columns.length === 0) {
       this.settings.columns = JSON.parse(JSON.stringify(DEFAULT_COLUMNS)) as CockpitBoardSettings["columns"];
+    }
+    if (!Array.isArray(this.settings.externalCalendars)) {
+      this.settings.externalCalendars = [];
+    }
+    for (const src of this.settings.externalCalendars) {
+      if (!src.id) src.id = `ext-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+      if (typeof src.enabled !== "boolean") src.enabled = true;
+      if (typeof src.url !== "string") src.url = "";
+      if (typeof src.filePath !== "string") src.filePath = "";
+      if (typeof src.label !== "string") src.label = "";
+      if (typeof src.project !== "string") src.project = "";
+      if (typeof src.timeZone !== "string") src.timeZone = "";
+      if (src.onDisappear !== "done" && src.onDisappear !== "delete") src.onDisappear = "keep";
+      if (typeof src.name !== "string") src.name = "";
+      if (typeof src.daysBack !== "number" || isNaN(src.daysBack)) src.daysBack = 7;
+      if (typeof src.daysAhead !== "number" || isNaN(src.daysAhead)) src.daysAhead = 60;
+    }
+    if (typeof this.settings.externalSyncIntervalMinutes !== "number" ||
+      isNaN(this.settings.externalSyncIntervalMinutes)) {
+      this.settings.externalSyncIntervalMinutes = 60;
     }
   }
 
   async saveSettings(): Promise<void> {
     const data = ((await this.loadData()) as Record<string, unknown> | null) || {};
     const dismissed = data._dismissedRecurring as Record<string, string> | undefined;
+    const externalSeen = data._externalSeen as ExternalSeenMap | undefined;
     const toSave = { ...this.settings } as Record<string, unknown>;
     if (dismissed) toSave._dismissedRecurring = dismissed;
+    if (externalSeen) toSave._externalSeen = externalSeen;
     await this.saveData(toSave);
   }
 

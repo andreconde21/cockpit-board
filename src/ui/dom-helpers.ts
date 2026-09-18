@@ -99,5 +99,11 @@ function hashString(s: string): number {
 
 export function getLabelColor(label: string, settings: CockpitBoardSettings): string {
   if (settings.labelColors[label]) return settings.labelColors[label];
+  // Labels are user-typed with varying case ("ClientAcme" vs "CLIENTACME") —
+  // fall back to a case-insensitive match before the palette.
+  const lower = label.toLowerCase();
+  for (const [name, color] of Object.entries(settings.labelColors)) {
+    if (name.toLowerCase() === lower) return color;
+  }
   return DEFAULT_PALETTE[hashString(label) % DEFAULT_PALETTE.length];
 }

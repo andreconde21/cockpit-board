@@ -117,6 +117,22 @@ Cron format: `minute hour dayOfMonth month dayOfWeek` (standard cron).
 
 Special frequencies: `biweekly-2nd-sat`, `monthly-1st-mon`.
 
+## External Calendars (Outlook / ICS)
+
+One-way editable import: new Outlook events become cards in your tasks folder with the label you choose. Imported cards are never overwritten, so your edits are safe. Cancelled Outlook events do not delete cards. Skipped automatically: `STATUS:CANCELLED`, subjects starting with `Canceled:`/`Cancelled:`, and blocks with no title. A cancelled instance also suppresses that day's occurrence of its series, so no ghost card is left behind. Events deleted in Outlook leave no trace in the file — set "When events disappear" per calendar to keep the card (default), mark it done, or delete it. Only dates inside the sync window are ever touched, and cards you already marked done are left alone.
+
+1. Get the calendar feed:
+   - Outlook on the web: Calendar > Share > Publish > copy the ICS link.
+   - Outlook desktop: Calendar > Publish Online > copy the link (`https://` or `webcal://` both work).
+   - No link? Export a `.ics` file into your vault instead.
+2. Settings > Cockpit Board > External calendars > + add calendar.
+3. Set Name (e.g. `Client Acme`), paste the ICS URL (or `.ics` path: vault-relative like `Calendars/client.ics`, or on desktop an absolute path like `~/Downloads/client.ics`), Label (e.g. `ClientAcme`), and optionally Project (e.g. `ClientAcme` — shown as a `[Project]` prefix).
+4. Run `Sync external calendars now` from the command palette. New events import with `due`, `time`, `due_end`, `labels: [ClientAcme]`, `source: external-calendar`.
+
+Notes: syncs on startup, hourly, and every N minutes (configurable, min 5). Only new occurrences import — recurring Outlook series expand inside your days-back/ahead window. Filter the board by the label to see just that client.
+
+Timezone: UTC times convert automatically. Times stamped with a zone (Outlook usually stamps its own, e.g. Swiss time) convert to your device time automatically. If the calendar has naive times in another zone, set the source timezone (IANA name, e.g. `Europe/Zurich`) and they convert too. Leave it empty when the calendar is already in your time.
+
 ## Keyboard Shortcuts
 
 | Key | Action |
@@ -136,6 +152,7 @@ Special frequencies: `biweekly-2nd-sat`, `monthly-1st-mon`.
 - **Archive folder** — Folder for archived tasks (YYYY/MM/DD structure)
 - **Auto-archive done cards** — Automatically move done cards into the archive folder once they've been completed for N days (also available as the "Archive done cards now" command)
 - **Recurring config path** — Path to `recurring.json`
+- **External calendars** — Outlook/ICS feeds imported with a fixed label (one-way, editable, never overwritten)
 - **Reminder lead times** — Minutes before a card's time to warn, comma separated (default `15,1`). Each lead fires once per card per day
 - **Desktop notifications** — Also send a system notification, so reminders arrive when Obsidian is in the background (desktop only)
 - **Card open mode** — Split pane, sidebar, or modal
