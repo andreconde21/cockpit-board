@@ -56,8 +56,21 @@ jobs:
           # the assets are authoritative here — they carry the provenance
           # attestation from the step above — so upload over whatever is
           # there rather than failing the run.
+          # Release notes come from the matching CHANGELOG.md section so every
+          # release ships a human-written changelog, not just a compare link.
+          NOTES_FILE="$(mktemp)"
+          awk -v tag="$TAG" '
+            index($0, "## [" tag "]") == 1 { capture = 1; next }
+            capture && /^## / { exit }
+            capture { print }
+          ' CHANGELOG.md > "$NOTES_FILE"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" --clobber main.js manifest.json styles.css
+          elif [ -s "$NOTES_FILE" ]; then
+            gh release create "$TAG" \
+              --title "$TAG" \
+              --notes-file "$NOTES_FILE" \
+              main.js manifest.json styles.css
           else
             gh release create "$TAG" \
               --title "$TAG" \

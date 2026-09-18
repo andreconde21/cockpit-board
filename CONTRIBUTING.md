@@ -69,13 +69,17 @@ Releases are tagged from `master` and pushed to the `*.*.*` tag pattern, which t
 To cut a release:
 
 ```bash
-# bump version in manifest.json, package.json, versions.json
-git add manifest.json package.json versions.json
+# 1. move the Unreleased CHANGELOG.md entries into a new X.Y.Z section
+# 2. bump version in manifest.json, package.json, versions.json
+git add CHANGELOG.md manifest.json package.json versions.json
 git commit -m "release: X.Y.Z"
 git tag -a X.Y.Z -m "Release X.Y.Z"
 git push origin master
 git push origin X.Y.Z
 ```
+
+The workflow takes the release notes from the matching `CHANGELOG.md`
+section, so every release ships a readable changelog.
 
 ## License
 
