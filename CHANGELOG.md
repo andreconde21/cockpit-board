@@ -11,6 +11,15 @@ cutting the release.
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-09-19
+
+### Fixed
+- Community review compliance: settings inputs styled via CSS classes
+  instead of inline styles; pruned calendar cards go through the trash per
+  the user's deletion preference.
+- Stricter external-sync typings (no unsafe assignments or assertions on
+  frontmatter reads).
+
 ## [1.1.0] - 2026-09-18
 
 ### Added

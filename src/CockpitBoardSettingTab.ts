@@ -481,7 +481,7 @@ export class CockpitBoardSettingTab extends PluginSettingTab {
       const windowRow = new Setting(card).setName("Sync window").setDesc("Days back / ahead to import.");
       windowRow.addText(t => {
         t.inputEl.type = "number";
-        t.inputEl.style.width = "70px";
+        t.inputEl.addClass("cockpit-settings-number");
         t.setValue(String(src.daysBack ?? 7)).onChange(v => {
           const n = parseInt(v);
           if (!isNaN(n) && n >= 0 && n <= 365) { src.daysBack = n; void this.plugin.saveSettings(); }
@@ -489,7 +489,7 @@ export class CockpitBoardSettingTab extends PluginSettingTab {
       });
       windowRow.addText(t => {
         t.inputEl.type = "number";
-        t.inputEl.style.width = "70px";
+        t.inputEl.addClass("cockpit-settings-number");
         t.setValue(String(src.daysAhead ?? 60)).onChange(v => {
           const n = parseInt(v);
           if (!isNaN(n) && n >= 1 && n <= 730) { src.daysAhead = n; void this.plugin.saveSettings(); }

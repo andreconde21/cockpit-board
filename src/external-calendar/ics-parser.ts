@@ -467,7 +467,7 @@ function expandRRule(ev: RawEvent, fromMs: number, toMs: number): number[] {
   }
 
   if (freq === "WEEKLY") {
-    const days = byday?.length ? byday.map(weekdayToNum).filter((n) => n != null) as number[] : [start.getDay()];
+    const days = byday?.length ? byday.map(weekdayToNum).filter((n): n is number => n != null) : [start.getDay()];
     days.sort((a, b) => a - b);
     // Anchor week on the Sunday of the start week, step by interval weeks.
     const weekStart = new Date(start);

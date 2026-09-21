@@ -372,6 +372,10 @@ body.is-mobile.is-mobile .cockpit-mobile-column-area .cockpit-column.cockpit-col
   background: var(--background-secondary);
 }
 
+.cockpit-settings-number {
+  width: 70px;
+}
+
 /* ── Card selection ───────────────────────────────────────── */
 
 .cockpit-card.cockpit-card-selected {

@@ -42,6 +42,11 @@ function stripSourcePrefix(key: string, sourceId: string): string {
   return key.startsWith(sourceId + "::") ? key.slice(sourceId.length + 2) : key;
 }
 
+/** Narrows unknown frontmatter without assertions. */
+function isFmRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 /** Meeting identity: same event UID on the same day, regardless of time. */
 function meetingIdFor(sourceId: string, key: string): string | null {
   const rest = stripSourcePrefix(key, sourceId).split("::");
@@ -194,8 +199,10 @@ async function updateMovedCard(
   const file = oldPath ? app.vault.getAbstractFileByPath(oldPath) : null;
   if (!(file instanceof TFile)) return null;
   const cache = app.metadataCache.getFileCache(file);
-  const fm = cache?.frontmatter as Record<string, unknown> | undefined;
-  if (!fm || fm.source !== "external-calendar") return null;
+  const frontmatter: unknown = cache?.frontmatter;
+  if (!isFmRecord(frontmatter)) return null;
+  const fm = frontmatter;
+  if (fm.source !== "external-calendar") return null;
   const oldTail = stripSourcePrefix(oldKey, source.id).split("::").pop() || "";
   const oldDate = oldTail.slice(0, 10);
   const oldTime = oldTail.includes("T") ? oldTail.slice(11) : "";
@@ -268,7 +275,8 @@ export async function syncExternalSource(
   if (knownKeys.size === 0) {
     for (const file of getMarkdownFilesAt(app, folder)) {
       const cache = app.metadataCache.getFileCache(file);
-      const key = cache?.frontmatter?.external_uid;
+      const frontmatter: unknown = cache?.frontmatter;
+      const key: unknown = isFmRecord(frontmatter) ? frontmatter.external_uid : undefined;
       if (typeof key === "string" && key.startsWith(source.id + "::")) {
         knownKeys.add(key);
         seen[key] = file.path;
@@ -351,7 +359,7 @@ export async function syncExternalSource(
       const title = typeof fm.title === "string" && fm.title ? fm.title : file.basename;
       try {
         if (action === "delete") {
-          await app.vault.delete(file);
+          await app.fileManager.trashFile(file);
           delete seen[key];
         } else {
           await app.fileManager.processFrontMatter(file, (frontmatter: Record<string, unknown>) => {
