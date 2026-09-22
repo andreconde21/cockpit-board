@@ -33,6 +33,15 @@ export default class CockpitBoardPlugin extends Plugin {
 
     this.registerView(VIEW_TYPE, (leaf) => new CockpitBoardView(leaf, this));
 
+    // Deep link: obsidian://cockpit-board?vault=MyVault&view=board|calendar|archive
+    // Works on desktop, Android and iOS — pin that URL as a home-screen
+    // shortcut for one-tap access to the board. Cold-start safe:
+    // onLayoutReady runs immediately when the layout is already ready.
+    this.registerObsidianProtocolHandler("cockpit-board", (params) => {
+      const view = typeof params.view === "string" ? params.view : undefined;
+      this.app.workspace.onLayoutReady(() => { void this.openFromUri(view); });
+    });
+
     this.addCommand({
       id: "open",
       name: "Open board",
@@ -42,33 +51,13 @@ export default class CockpitBoardPlugin extends Plugin {
     this.addCommand({
       id: "open-archive",
       name: "Open archive search",
-      callback: () => {
-        void (async () => {
-          await this.activateView();
-          const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
-          if (leaf?.view) {
-            (leaf.view as CockpitBoardView).showArchive = true;
-            void (leaf.view as CockpitBoardView).render();
-          }
-        })();
-      },
+      callback: () => { void this.openFromUri("archive"); },
     });
 
     this.addCommand({
       id: "open-calendar",
       name: "Open calendar view",
-      callback: () => {
-        void (async () => {
-          await this.activateView();
-          const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
-          if (leaf?.view) {
-            const view = leaf.view as CockpitBoardView;
-            view.showCalendar = true;
-            view.showArchive = false;
-            void view.render();
-          }
-        })();
-      },
+      callback: () => { void this.openFromUri("calendar"); },
     });
 
     this.addCommand({
@@ -359,5 +348,25 @@ export default class CockpitBoardPlugin extends Plugin {
       return;
     }
     await this.app.workspace.getLeaf("tab").setViewState({ type: VIEW_TYPE, state: {} });
+  }
+
+  /** Shared entry point for commands and the obsidian://cockpit-board deep link. */
+  async openFromUri(view?: string): Promise<void> {
+    const normalized = (view || "board").toLowerCase();
+    await this.activateView();
+    const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
+    const boardView = leaf?.view as CockpitBoardView | undefined;
+    if (!boardView) return;
+    if (normalized === "calendar") {
+      boardView.showCalendar = true;
+      boardView.showArchive = false;
+    } else if (normalized === "archive") {
+      boardView.showArchive = true;
+      boardView.showCalendar = false;
+    } else {
+      boardView.showArchive = false;
+      boardView.showCalendar = false;
+    }
+    await boardView.render();
   }
 }

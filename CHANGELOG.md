@@ -11,6 +11,15 @@ cutting the release.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-22
+
+### Added
+- Deep link `obsidian://cockpit-board?vault=MyVault&view=board|calendar|archive`
+  for one-tap access to the board, calendar, or archive. Works on desktop,
+  Android, and iOS — pin it as a home-screen shortcut. Cold-start safe.
+- "Open archive search" and "Open calendar view" commands now share the same
+  entry point as the deep link.
+
 ## [1.1.1] - 2026-09-19
 
 ### Fixed

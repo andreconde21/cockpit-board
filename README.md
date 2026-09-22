@@ -62,6 +62,28 @@ Task description here.
 - [ ] Step two
 ```
 
+## Deep Link & Home-Screen Shortcut (Android / iOS)
+
+The board registers the `obsidian://cockpit-board` URL, so you can jump
+straight to it without going through the command palette:
+
+```
+obsidian://cockpit-board?vault=MyVault&view=board
+obsidian://cockpit-board?vault=MyVault&view=calendar
+obsidian://cockpit-board?vault=MyVault&view=archive
+```
+
+Replace `MyVault` with your (URL-encoded) vault name. `view` is optional
+and defaults to `board`. The link works on desktop too, and survives a
+cold start (Obsidian opens first, then the board).
+
+**Android:** open the URL once in Chrome, then ⋮ menu → *Add to Home
+screen*. Or use any shortcut-maker app with the URL above as the target.
+
+**iOS:** create a Shortcut with *Open URLs* set to the link above, then
+Share → *Add to Home Screen*. Alternatively paste the link in Safari and
+use Share → *Add to Home Screen*.
+
 ## Frontmatter Properties
 
 | Property | Type | Description |
