@@ -1,4 +1,5 @@
 import { Notice, Plugin, TFile } from "obsidian";
+import type { ObsidianProtocolData } from "obsidian";
 import type { CardFrontmatter, CockpitBoardSettings, TimerData, PomodoroSession } from "./types";
 import { VIEW_TYPE, DEFAULT_SETTINGS, DEFAULT_COLUMNS } from "./constants";
 import { CockpitBoardView } from "./CockpitBoardView";
@@ -8,7 +9,7 @@ import { archiveDoneCards } from "./archive/AutoArchive";
 import { syncAllExternalCalendars, type ExternalSeenMap } from "./external-calendar/sync";
 import { scheduleNotifications } from "./notifications";
 import { PomodoroEngine } from "./pomodoro";
-import { todayStr } from "./ui/dom-helpers.js";
+import { formatDateLocal, getTomorrow, parseDate, todayStr } from "./ui/dom-helpers.js";
 import { isInFolder } from "./vault-helpers";
 
 export default class CockpitBoardPlugin extends Plugin {
@@ -34,12 +35,18 @@ export default class CockpitBoardPlugin extends Plugin {
     this.registerView(VIEW_TYPE, (leaf) => new CockpitBoardView(leaf, this));
 
     // Deep link: obsidian://cockpit-board?vault=MyVault&view=board|calendar|archive
-    // Works on desktop, Android and iOS — pin that URL as a home-screen
-    // shortcut for one-tap access to the board. Cold-start safe:
-    // onLayoutReady runs immediately when the layout is already ready.
+    // Quick-add: obsidian://cockpit-board?vault=MyVault&quickadd=Buy+milk&due=today
+    // Works on desktop, Android and iOS — pin those URLs as home-screen
+    // shortcuts for one-tap access. Cold-start safe: onLayoutReady runs
+    // immediately when the layout is already ready.
     this.registerObsidianProtocolHandler("cockpit-board", (params) => {
-      const view = typeof params.view === "string" ? params.view : undefined;
-      this.app.workspace.onLayoutReady(() => { void this.openFromUri(view); });
+      this.app.workspace.onLayoutReady(() => {
+        if (typeof params.quickadd === "string") void this.quickAddFromUri(params);
+        else {
+          const view = typeof params.view === "string" ? params.view : undefined;
+          void this.openFromUri(view);
+        }
+      });
     });
 
     this.addCommand({
@@ -349,7 +356,6 @@ export default class CockpitBoardPlugin extends Plugin {
     }
     await this.app.workspace.getLeaf("tab").setViewState({ type: VIEW_TYPE, state: {} });
   }
-
   /** Shared entry point for commands and the obsidian://cockpit-board deep link. */
   async openFromUri(view?: string): Promise<void> {
     const normalized = (view || "board").toLowerCase();
@@ -369,4 +375,63 @@ export default class CockpitBoardPlugin extends Plugin {
     }
     await boardView.render();
   }
+
+  /**
+   * File a task without opening the board UI:
+   * obsidian://cockpit-board?vault=MyVault&quickadd=Buy+milk&due=today&time=18:00
+   *
+   * Params: quickadd (title, required), due (today|tomorrow|YYYY-MM-DD),
+   * time (HH:MM), project, labels (comma-separated),
+   * open (board|calendar|archive|none, default none).
+   */
+  async quickAddFromUri(params: ObsidianProtocolData): Promise<void> {
+    const str = (key: string): string =>
+      typeof params[key] === "string" ? (params[key] as string).trim() : "";
+    const title = str("quickadd");
+    if (!title) {
+      new Notice("Quick-add needs a title: &quickadd=Buy milk");
+      await this.openFromUri(str("view") || "board");
+      return;
+    }
+    if (!this.settings.folder) {
+      new Notice("Set a tasks folder in settings first.");
+      return;
+    }
+    const due = resolveQuickDue(str("due"));
+    const timeRaw = str("time");
+    const time = /^\d{1,2}:\d{2}$/.test(timeRaw) ? timeRaw : "";
+    const project = str("project");
+    const labels = str("labels").split(",").map((l) => l.trim()).filter(Boolean);
+    const labelsYaml = labels.length
+      ? `[${labels.map((l) => JSON.stringify(l)).join(", ")}]`
+      : "[]";
+
+    const slugBase = title.toLowerCase().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").slice(0, 60) || "quick-task";
+    let path = `${this.settings.folder}/${slugBase}.md`;
+    let i = 1;
+    while (this.app.vault.getAbstractFileByPath(path)) {
+      path = `${this.settings.folder}/${slugBase}-${i}.md`;
+      i++;
+    }
+
+    await this.app.vault.create(path,
+      `---\ntitle: "${title.replace(/"/g, '\\"')}"\nstatus: scheduled\ndue: ${due}\ntime: ${time}\ncompleted:\nproject: "${project.replace(/"/g, '\\"')}"\nlabels: ${labelsYaml}\ncreated: ${todayStr()}\nsource: quickadd\n---\n\n# ${title}\n`);
+
+    const when = [due, time].filter(Boolean).join(" ");
+    new Notice(`⚡ Added: ${title}${when ? ` (${when})` : ""}`, 4000);
+
+    const open = (str("open") || "none").toLowerCase();
+    if (open === "calendar" || open === "archive" || open === "board") {
+      await this.openFromUri(open);
+    }
+  }
+}
+
+/** today|tomorrow|YYYY-MM-DD → YYYY-MM-DD, anything else → "". */
+function resolveQuickDue(raw: string): string {
+  const v = raw.trim().toLowerCase();
+  if (v === "today") return todayStr();
+  if (v === "tomorrow") return formatDateLocal(getTomorrow());
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v) && parseDate(v)) return v;
+  return "";
 }

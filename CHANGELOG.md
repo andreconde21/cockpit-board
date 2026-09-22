@@ -11,6 +11,14 @@ cutting the release.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-09-22
+
+### Added
+- Quick-add deep link: `obsidian://cockpit-board?vault=MyVault&quickadd=Title&due=today&time=18:00`
+  files a task without opening the board UI. Optional `project`, `labels`
+  (comma-separated), and `open` (`board`|`calendar`|`archive`|`none`,
+  default `none`). For phone home-screen and dictation shortcuts.
+
 ## [1.2.0] - 2026-09-22
 
 ### Added

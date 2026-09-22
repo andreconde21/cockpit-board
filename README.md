@@ -84,6 +84,25 @@ screen*. Or use any shortcut-maker app with the URL above as the target.
 Share → *Add to Home Screen*. Alternatively paste the link in Safari and
 use Share → *Add to Home Screen*.
 
+### Quick-add (file a task without opening the board)
+
+```
+obsidian://cockpit-board?vault=MyVault&quickadd=Buy+milk&due=today&time=18:00
+```
+
+`quickadd` is the card title (required). Optional: `due` (`today`,
+`tomorrow`, or `YYYY-MM-DD`), `time` (`HH:MM`), `project`, `labels`
+(comma-separated), and `open` (`board`, `calendar`, `archive`, or `none`
+— the default, which just shows a confirmation and leaves you where you
+were). Remember to URL-encode the vault name and title (spaces as `%20`
+or `+`).
+
+Phone recipes: on iOS, a Shortcut with *Ask for Input* → *Open URLs*
+gives you dictation-to-task in seconds. On Android, automation apps like
+MacroDroid or Tasker can prompt for text and open the built-in URL; for
+recurring one-tap tasks, pin a static URL per task straight to the home
+screen.
+
 ## Frontmatter Properties
 
 | Property | Type | Description |
