@@ -309,7 +309,7 @@ export default class CockpitBoardPlugin extends Plugin {
       {},
       JSON.parse(JSON.stringify(DEFAULT_SETTINGS)) as CockpitBoardSettings,
       saved,
-    ) as CockpitBoardSettings;
+    );
     delete (this.settings as unknown as Record<string, unknown>)._dismissedRecurring;
     delete (this.settings as unknown as Record<string, unknown>)._externalSeen;
 
@@ -386,10 +386,10 @@ export default class CockpitBoardPlugin extends Plugin {
    */
   async quickAddFromUri(params: ObsidianProtocolData): Promise<void> {
     const str = (key: string): string =>
-      typeof params[key] === "string" ? (params[key] as string).trim() : "";
+      typeof params[key] === "string" ? (params[key]).trim() : "";
     const title = str("quickadd");
     if (!title) {
-      new Notice("Quick-add needs a title: &quickadd=Buy milk");
+      new Notice("Quick-add needs a title, for example &quickadd=buy milk");
       await this.openFromUri(str("view") || "board");
       return;
     }

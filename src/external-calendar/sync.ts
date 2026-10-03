@@ -112,6 +112,7 @@ function isAbsolutePath(path: string): boolean {
 
 type NodeRequire = (mod: string) => unknown;
 
+/* global require -- Electron provides require on desktop; the typeof guard below keeps mobile safe */
 function nodeRequire(): NodeRequire | null {
   // Bare require exists in desktop Electron, not on mobile — typeof guard
   // keeps this safe everywhere.

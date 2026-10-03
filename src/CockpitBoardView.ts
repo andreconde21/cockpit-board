@@ -165,7 +165,7 @@ export class CockpitBoardView extends ItemView {
     if (!folder || !(folder instanceof TFolder)) return [];
     const cards: CardData[] = [];
     for (const file of getMarkdownFiles(folder)) {
-      const fm = (this.app.metadataCache.getFileCache(file)?.frontmatter as CardFrontmatter | undefined) || {};
+      const fm = (this.app.metadataCache.getFileCache(file)?.frontmatter) || {};
       const content = await this.app.vault.cachedRead(file);
       cards.push(new CockpitCard(file, fm, content, this.columns));
     }
@@ -806,7 +806,7 @@ export class CockpitBoardView extends ItemView {
   }
 
   async createCardInColumn(title: string, col: ColumnConfig): Promise<void> {
-    const updates = getDropUpdates(col, { due: "", labels: [] } as unknown as CardData);
+    const updates = getDropUpdates(col, { due: "", labels: [] });
     const status = updates.status || "";
     const due = updates.due || "";
     const labels = updates._addLabel ? `["${updates._addLabel}"]` : "[]";
@@ -824,24 +824,24 @@ export class CockpitBoardView extends ItemView {
 
   // ── Context builders ──
   private getColumnRendererContext(): ColumnRendererContext {
-    const thisView = this;
+    const thisView = (): CockpitBoardView => this;
     return {
       settings: this.settings,
       columns: this.columns,
       isMobile: this.isMobile,
       activeTimers: this.plugin.activeTimers,
       selectedCards: this.selectedCards,
-      get lastSelectedCard() { return thisView.lastSelectedCard; },
-      set lastSelectedCard(value) { thisView.lastSelectedCard = value; },
+      get lastSelectedCard() { return thisView().lastSelectedCard; },
+      set lastSelectedCard(value) { thisView().lastSelectedCard = value; },
       allCards: this.allCards,
-      get draggedCard() { return thisView.draggedCard; },
-      set draggedCard(value) { thisView.draggedCard = value; },
-      get draggedEl() { return thisView.draggedEl; },
-      set draggedEl(value) { thisView.draggedEl = value; },
-      get pauseRefresh() { return thisView.pauseRefresh; },
-      set pauseRefresh(value) { thisView.pauseRefresh = value; },
-      get _bulkOperating() { return thisView._bulkOperating; },
-      set _bulkOperating(value) { thisView._bulkOperating = value; },
+      get draggedCard() { return thisView().draggedCard; },
+      set draggedCard(value) { thisView().draggedCard = value; },
+      get draggedEl() { return thisView().draggedEl; },
+      set draggedEl(value) { thisView().draggedEl = value; },
+      get pauseRefresh() { return thisView().pauseRefresh; },
+      set pauseRefresh(value) { thisView().pauseRefresh = value; },
+      get _bulkOperating() { return thisView()._bulkOperating; },
+      set _bulkOperating(value) { thisView()._bulkOperating = value; },
       openCard: (card: CardData) => { void this.openCard(card); },
       openChecklistEditor: (card: CardData) => this.openChecklistEditor(card),
       promptDateTime: (card: CardData) => this.promptDateTime(card),
@@ -871,19 +871,19 @@ export class CockpitBoardView extends ItemView {
   }
 
   private getSelectionContext(): SelectionContext {
-    const thisView = this;
+    const thisView = (): CockpitBoardView => this;
     return {
       containerEl: this.containerEl,
       selectedCards: this.selectedCards,
-      get lastSelectedCard() { return thisView.lastSelectedCard; },
-      set lastSelectedCard(value) { thisView.lastSelectedCard = value; },
+      get lastSelectedCard() { return thisView().lastSelectedCard; },
+      set lastSelectedCard(value) { thisView().lastSelectedCard = value; },
       allCards: this.allCards,
       columns: this.columns,
       settings: this.settings,
-      get pauseRefresh() { return thisView.pauseRefresh; },
-      set pauseRefresh(value) { thisView.pauseRefresh = value; },
-      get _bulkOperating() { return thisView._bulkOperating; },
-      set _bulkOperating(value) { thisView._bulkOperating = value; },
+      get pauseRefresh() { return thisView().pauseRefresh; },
+      set pauseRefresh(value) { thisView().pauseRefresh = value; },
+      get _bulkOperating() { return thisView()._bulkOperating; },
+      set _bulkOperating(value) { thisView()._bulkOperating = value; },
       handleDrop: (card, col) => this.handleDrop(card, col),
       updateCardProperty: (file, props) => this.updateCardProperty(file, props),
       toast: (msg) => this.toast(msg),

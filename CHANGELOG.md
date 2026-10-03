@@ -11,6 +11,19 @@ cutting the release.
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-10-03
+
+### Fixed
+- Code-quality fixes ahead of stricter community directory scans: removed
+  unnecessary type assertions and `this` aliasing, declared the desktop-only
+  `require` global explicitly.
+- Settings text follows Obsidian's sentence-case guideline and no longer names
+  a specific calendar provider.
+
+### Changed
+- Development: the Obsidian ESLint rules are now pinned dev dependencies
+  (`npm run lint`), and TypeScript moved to 5.9.
+
 ## [1.3.0] - 2026-09-22
 
 ### Added
