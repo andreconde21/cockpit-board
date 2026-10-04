@@ -11,13 +11,13 @@ cutting the release.
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-04
+
 ### Added
 - External calendars: an "Import deleted meetings again" button on each
   calendar's page. Upcoming meetings whose card was deleted are skipped by
   design; this brings them back. Cards that were only moved or renamed are left
   alone.
-
-## [1.4.0] - 2026-10-04
 
 ### Changed
 - Settings use Obsidian's declarative settings API: grouped sections that
