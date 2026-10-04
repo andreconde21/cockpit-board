@@ -11,6 +11,11 @@ cutting the release.
 
 ## [Unreleased]
 
+### Fixed
+- Lockfiles regenerated with npm 11 (the version the community directory scanner
+  uses), which records esbuild's per-platform packages and peer flags that npm 10
+  left out. The scanner reported them as out of date.
+
 ## [1.4.0] - 2026-10-04
 
 ### Added
