@@ -11,6 +11,22 @@ cutting the release.
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-04
+
+### Changed
+- Settings use Obsidian's declarative settings API: grouped sections that
+  show or hide with their toggles, native reorderable lists for columns and
+  label colours, and one sub-page per external calendar with its last sync
+  status.
+
+### Fixed
+- External calendars: meetings whose subject starts with a translated
+  "Cancelled:" prefix (e.g. "Abgesagt:", "Annulé:", "Cancelado:") are treated
+  as cancelled.
+- Dependencies install cleanly with a plain `npm ci` again (aligned the
+  CodeMirror versions with Obsidian's), so the community directory review can
+  run its dependency-based checks. Review lint tooling moved to `tools/lint`.
+
 ## [1.3.1] - 2026-10-03
 
 ### Fixed
