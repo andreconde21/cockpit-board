@@ -17,7 +17,7 @@ Please file bugs and feature requests at https://github.com/andreconde21/cockpit
 ```bash
 git clone https://github.com/andreconde21/cockpit-board.git
 cd cockpit-board
-npm install --legacy-peer-deps
+npm install
 ```
 
 ### Build
@@ -27,6 +27,15 @@ npm run build       # type-check + production bundle
 npm run dev         # esbuild in watch mode for development
 npm run deploy      # build and copy to your local vault plugin folder
 ```
+
+### Lint
+
+```bash
+npm run lint        # Obsidian's review rules (eslint-plugin-obsidianmd)
+```
+
+The lint tooling has its own `package.json` in `tools/lint`, so the plugin's
+dependencies stay minimal and install without flags.
 
 The `deploy` script expects an Obsidian vault at `~/Dropbox/Obsidian/Cockpit/`. Adjust the script in `package.json` to point to your own vault when developing.
 

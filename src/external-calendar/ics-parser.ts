@@ -26,6 +26,10 @@ export interface IcsOccurrence {
   startMs: number;
 }
 
+/** Subject prefixes meaning "this meeting was cancelled", across Outlook locales. */
+const CANCELLED_SUBJECT =
+  /^\s*(cancell?ed|abgesagt|annulé|annule|cancelado|cancelada|annullato|geannuleerd|aflyst|inställt|peruttu|anulowane|zrušeno)\s*:/i;
+
 interface RawEvent {
   uid: string;
   summary: string;
@@ -258,13 +262,14 @@ function parseEvent(lines: string[], floatingTz?: string): RawEvent | null {
   // no information worth a card.
   if (!summary) return null;
   // Organizers often "cancel" by renaming the subject to "Canceled: ..." while
-  // leaving STATUS untouched — treat that prefix (both spellings) as cancelled.
+  // leaving STATUS untouched — treat that prefix as cancelled, in the languages
+  // Outlook/Exchange localise it to (Abgesagt, Annulé, Cancelado, Annullato…).
   // Excluded events are kept (not dropped) so their day can suppress the base
   // series occurrence: otherwise the tombstone is skipped but the ghost of the
   // meeting still imports.
   const status = first("STATUS")?.value.trim() || "";
   const excluded =
-    status.toUpperCase() === "CANCELLED" || /^\s*cancell?ed\s*:/i.test(summary);
+    status.toUpperCase() === "CANCELLED" || CANCELLED_SUBJECT.test(summary);
 
   return {
     uid,

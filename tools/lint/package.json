@@ -1,0 +1,18 @@
+{
+  "name": "cockpit-board-lint",
+  "private": true,
+  "description": "Obsidian's review lint rules, kept out of the plugin's own dependencies so the directory scanner installs exactly what the plugin needs.",
+  "scripts": {
+    "lint": "cd ../.. && tools/lint/node_modules/.bin/eslint -c tools/lint/eslint.config.mjs src/"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@eslint/json": "0.14.0",
+    "@typescript-eslint/parser": "8.70.1",
+    "eslint": "9.39.5",
+    "eslint-plugin-obsidianmd": "0.4.2",
+    "obsidian": "1.13.1",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.70.1"
+  }
+}

@@ -1,13 +1,13 @@
 {
   "name": "cockpit-board",
-  "version": "1.3.1",
+  "version": "1.4.0",
   "description": "Dynamic Kanban board from frontmatter properties with calendar views, timers, and recurring tasks.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
     "deploy": "npm run build && cp main.js styles.css manifest.json \"$HOME/Dropbox/Obsidian/Cockpit/.obsidian/plugins/cockpit-board/\"",
-    "lint": "npx eslint src/"
+    "lint": "npm --prefix tools/lint ci --ignore-scripts --legacy-peer-deps && npm --prefix tools/lint run lint"
   },
   "keywords": [
     "obsidian",
@@ -19,18 +19,12 @@
   "author": "Outsmartis",
   "license": "MIT",
   "devDependencies": {
-    "@codemirror/state": "^6.6.0",
-    "@codemirror/view": "^6.41.0",
-    "@eslint/js": "9.39.5",
-    "@eslint/json": "0.14.0",
+    "@codemirror/state": "6.5.0",
+    "@codemirror/view": "6.38.6",
     "@types/node": "^16.11.6",
-    "@typescript-eslint/parser": "8.70.1",
     "esbuild": "0.17.3",
-    "eslint": "9.39.5",
-    "eslint-plugin-obsidianmd": "0.4.2",
     "obsidian": "^1.13.1",
     "tslib": "2.4.0",
-    "typescript": "5.9.3",
-    "typescript-eslint": "8.70.1"
+    "typescript": "4.7.4"
   }
 }
