@@ -88,6 +88,25 @@ export function findStaleSeenKeys(
   return stale;
 }
 
+/**
+ * Seen keys of one calendar, for today or later, whose card no longer exists
+ * anywhere (`liveKeys`: the external_uid of every card still in the vault).
+ * Forgetting them lets the next sync import those meetings again. Pure for
+ * testability.
+ */
+export function deletedSeenKeys(
+  seen: ExternalSeenMap,
+  sourceId: string,
+  liveKeys: ReadonlySet<string>,
+  today: string,
+): string[] {
+  return Object.keys(seen).filter((key) => {
+    if (!key.startsWith(sourceId + "::") || liveKeys.has(key)) return false;
+    const date = (key.split("::").pop() || "").slice(0, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(date) && date >= today;
+  });
+}
+
 /** Seen map persisted in plugin data: syncKey -> card path. */
 export type ExternalSeenMap = Record<string, string>;
 

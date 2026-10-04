@@ -11,6 +11,12 @@ cutting the release.
 
 ## [Unreleased]
 
+### Added
+- External calendars: an "Import deleted meetings again" button on each
+  calendar's page. Upcoming meetings whose card was deleted are skipped by
+  design; this brings them back. Cards that were only moved or renamed are left
+  alone.
+
 ## [1.4.0] - 2026-10-04
 
 ### Changed

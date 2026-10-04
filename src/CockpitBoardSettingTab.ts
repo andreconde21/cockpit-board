@@ -401,6 +401,9 @@ export class CockpitBoardSettingTab extends PluginSettingTab {
           n => { src.daysBack = Math.min(n, 365); }, 0),
         this.numberField("Days ahead", "Import events up to this many days ahead.", () => src.daysAhead ?? 60,
           n => { src.daysAhead = Math.min(n, 730); }, 1),
+        this.button("Import deleted meetings again", "Re-import", () => {
+          void this.plugin.reimportDeletedMeetings(src.id);
+        }),
         this.button("Remove this calendar", "Remove calendar", () => {
           s.externalCalendars = (s.externalCalendars || []).filter(other => other.id !== src.id);
           void this.saveAndRefresh();

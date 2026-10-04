@@ -6,7 +6,7 @@ import { CockpitBoardView } from "./CockpitBoardView";
 import { CockpitBoardSettingTab } from "./CockpitBoardSettingTab";
 import { checkRecurring } from "./recurring";
 import { archiveDoneCards } from "./archive/AutoArchive";
-import { syncAllExternalCalendars, type ExternalSeenMap } from "./external-calendar/sync";
+import { deletedSeenKeys, syncAllExternalCalendars, type ExternalSeenMap } from "./external-calendar/sync";
 import { scheduleNotifications } from "./notifications";
 import { PomodoroEngine } from "./pomodoro";
 import { formatDateLocal, getTomorrow, parseDate, todayStr } from "./ui/dom-helpers.js";
@@ -245,6 +245,28 @@ export default class CockpitBoardPlugin extends Plugin {
     } finally {
       this._externalSyncing = false;
     }
+  }
+
+  /**
+   * Forget upcoming meetings of one calendar whose cards were deleted, then
+   * sync, so they are imported again. A card that was only moved or renamed
+   * still carries its external_uid and is left alone.
+   */
+  async reimportDeletedMeetings(sourceId: string): Promise<void> {
+    const liveKeys = new Set<string>();
+    for (const file of this.app.vault.getMarkdownFiles()) {
+      const uid: unknown = this.app.metadataCache.getFileCache(file)?.frontmatter?.external_uid;
+      if (typeof uid === "string") liveKeys.add(uid);
+    }
+    const keys = deletedSeenKeys(this._externalSeen, sourceId, liveKeys, todayStr());
+    if (keys.length === 0) {
+      new Notice("No deleted upcoming meetings to import again.");
+      return;
+    }
+    for (const key of keys) delete this._externalSeen[key];
+    await this.saveExternalSeen();
+    new Notice(`Importing ${keys.length} deleted meeting${keys.length === 1 ? "" : "s"} again…`);
+    await this.syncExternalCalendars(true);
   }
 
   // ── Auto-archive ──
