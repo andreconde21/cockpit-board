@@ -325,7 +325,7 @@ export class CockpitBoardSettingTab extends PluginSettingTab {
       items: [
         {
           name: "How it works",
-          desc: "One-way editable import: new events become cards in your tasks folder with the label you choose. Imported cards are never overwritten, so your edits are safe. Skipped automatically: cancelled events, subjects starting with “canceled:”/“cancelled:”, and blocks with no title.",
+          desc: "One-way editable import: new events become cards in your tasks folder with the label you choose. Imported cards are never overwritten, so your edits are safe. Skipped automatically: cancelled events, subjects starting with “canceled:” (or its translation, e.g. “abgesagt:”), and blocks with no title.",
           searchable: true,
         },
         {
