@@ -17,6 +17,9 @@ A dynamic Kanban board for [Obsidian](https://obsidian.md) driven by frontmatter
 - **Privacy Mode** — Blur card titles (hover to reveal) for screen sharing
 - **Focus Mode** — Show only Today + In Progress columns (press `F`)
 - **Split & Close** — Split a partially-completed checklist into done + continuation cards
+- **Copy card references** — Right-click a card to copy its ID, path, links or a ready-to-paste context block
+- **Card IDs** — Optional short IDs (`CB-12`) for every card, and a link that opens a card on the board
+- **Start an agent on a card** — Opt-in, desktop: start Claude Code, Codex or another coding agent with the card as its task, on this computer or a remote machine, in herdr, a new terminal or tmux
 
 ## Installation
 
@@ -103,6 +106,87 @@ MacroDroid or Tasker can prompt for text and open the built-in URL; for
 recurring one-tap tasks, pin a static URL per task straight to the home
 screen.
 
+## Card IDs and Copying
+
+Right-click a card (on the board, in the calendar, or in the tab's "..." menu
+when the card is open) for:
+
+- **Copy card ID** — the card's `id` property, or its file name when it has none
+- **Copy path** — its path in the vault
+- **Copy as agent context** — title, ID, full path, board link, status, due
+  date, labels and the card's text, ready to paste into a chat or terminal
+- **Copy reference...** — pick another format: absolute path, wikilink,
+  Obsidian link, board link, title
+
+With several cards selected, the menu copies each card's ID or path, one per
+line. The same actions exist as commands, for the card that is open.
+
+**Short IDs.** Turn on *Settings > Card IDs > Assign card IDs* and new cards
+get `id: CB-1`, `CB-2`... (your prefix). *Assign an ID to cards without one*
+numbers the existing ones, oldest first. Two devices creating cards while
+offline can pick the same number; the plugin tells you, and the same command
+renumbers the newer card.
+
+**Open a card by link:**
+
+```
+obsidian://cockpit-board?vault=MyVault&card=CB-12
+obsidian://cockpit-board?vault=MyVault&card=Tasks/fix-login.md
+```
+
+`card` is an ID, a file name, or a vault path.
+
+## Running Agents (desktop)
+
+Off by default. Turn it on in *Settings > Agents > Enable agent launcher*.
+**When on, the plugin starts programs on your computer and, over SSH, on
+other machines — only when you click Start.** It reads card files into the
+agent's prompt, and reads `~/.ssh/config` and `herdr machine list` to offer
+machines. It stores no passwords or keys; SSH uses your own.
+
+Right-click a card:
+
+- **Start agent...** opens a dialog: which agent, where (this computer or a
+  machine), how the card gets there, which session, the folder, and the
+  prompt, which you can edit before starting.
+- **Start <default agent>** starts your default agent on this computer, no
+  dialog. Cards imported from outside (external calendars, email) always open
+  the dialog, with a warning, so you see their text before anything runs.
+
+The card popup has a *Start agent* button too, and both are commands.
+
+**Agents.** Profiles for Claude Code, Codex, Gemini or any command, with
+arguments and a prompt template (`{{context}}`, `{{id}}`, `{{title}}`,
+`{{path}}`, `{{cardFile}}`, `{{boardLink}}`...). Presets never add
+permission-bypass flags.
+
+**Sessions.**
+
+| Session | What happens |
+|---------|--------------|
+| herdr | A new herdr workspace in the folder, the agent started and given the prompt. Works on remote machines saved in herdr too. Shows up in sheprd |
+| New terminal | A terminal window opens with the agent running (the first terminal found, or the command you set) |
+| tmux | A new window in the `cockpit` session; optionally a terminal attached to it. On Windows, local tmux runs in WSL |
+
+**Machines.** No list to maintain: herdr's saved machines and the hosts in
+your SSH config show up by themselves; add others by alias. Each machine can
+optionally have its own folder, agent, session and shared folder.
+
+**Getting the card to a remote machine:**
+
+- **Upload over SSH** (default) — the card is copied to
+  `~/.cache/cockpit-board/cards/<id>.md` on that machine
+- **Shared folder** (default when set for the machine) — the card is copied
+  into `<shared folder>/cockpit/` and the agent reads it from the machine's
+  side of the folder
+- **In the prompt** — the card's text goes in the prompt itself
+
+Each start is logged on the card in `agent_runs`. A card can set its own local
+working folder with an `agent_cwd` property.
+
+The card text is never put into a command line or a script: it is written to
+a file and read from there, or handed to herdr as a single argument.
+
 ## Frontmatter Properties
 
 | Property | Type | Description |
@@ -119,6 +203,9 @@ screen.
 | `time_spent` | number | Timer minutes tracked |
 | `source` | string | `manual`, `recurring`, etc. |
 | `created` | date | Creation date |
+| `id` | string | Card ID (optional; see Card IDs) |
+| `agent_cwd` | string | Folder a local agent starts in (optional) |
+| `agent_runs` | list | Log of agents started on this card (written by the plugin) |
 
 ## Column Rules
 
@@ -204,6 +291,8 @@ Timezone: UTC times convert automatically. Times stamped with a zone (Outlook us
 - **Custom card order** — Enable drag-and-drop reordering
 - **Label Colors** — Assign custom colors to labels (auto-assigned from palette when not set)
 - **Columns** — Add, remove, reorder, and configure column rules
+- **Card IDs** — Assign short IDs to new cards, prefix, show the ID on cards
+- **Agents** (desktop) — Enable the launcher, default agent, prompt template, agent profiles, this computer's session and terminal, machines and their overrides
 
 ## License
 
