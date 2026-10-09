@@ -87,21 +87,28 @@ use Share → *Add to Home Screen*.
 ### Quick-add (file a task without opening the board)
 
 ```
-obsidian://cockpit-board?vault=MyVault&quickadd=Buy+milk&due=today&time=18:00
+obsidian://cockpit-board?vault=MyVault&quickadd=Buy%20milk&due=today&time=18:00
 ```
 
 `quickadd` is the card title (required). Optional: `due` (`today`,
 `tomorrow`, or `YYYY-MM-DD`), `time` (`HH:MM`), `project`, `labels`
 (comma-separated), and `open` (`board`, `calendar`, `archive`, or `none`
 — the default, which just shows a confirmation and leaves you where you
-were). Remember to URL-encode the vault name and title (spaces as `%20`
-or `+`).
+were). URL-encode the vault name and title: spaces as `%20` (not `+`,
+which can arrive as a literal plus), and `&`, `#`, `?` as `%26`, `%23`,
+`%3F`, or they cut the title short.
 
-Phone recipes: on iOS, a Shortcut with *Ask for Input* → *Open URLs*
-gives you dictation-to-task in seconds. On Android, automation apps like
-MacroDroid or Tasker can prompt for text and open the built-in URL; for
-recurring one-tap tasks, pin a static URL per task straight to the home
-screen.
+**Test it first.** Paste your link into a chat message or note to
+yourself and tap it. If Android asks which app should open it, pick
+Obsidian → *Always*. You should see `⚡ Added: …` and the new card in
+your tasks folder; once that works, turn it into a shortcut.
+
+Phone recipes: on iOS, a Shortcut with *Ask for Input* → *URL Encode* →
+*Open URLs* gives you dictation-to-task in seconds. On Android,
+automation apps like MacroDroid or Tasker can prompt for text and open
+the URL; URL-encode the typed text before inserting it, or titles with
+`&` or `#` break. For recurring one-tap tasks, pin a static URL per task
+straight to the home screen with a shortcut-maker app.
 
 ## Frontmatter Properties
 
