@@ -6,7 +6,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileS
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fakeApp } from "./fake-app";
-import { agentArgv, launchAgent, posixAgentLine, posixScript, remoteCardFile, terminalArgv, type LaunchPlan } from "../src/agent/launcher";
+import { agentArgv, checkSshTarget, herdrText, launchAgent, posixAgentLine, posixScript, remoteCardFile, terminalArgv, type LaunchPlan } from "../src/agent/launcher";
 import type { ResolvedMachine } from "../src/agent/machines";
 import { DEFAULT_SETTINGS } from "../src/constants";
 import type { AgentProfile, CockpitBoardSettings } from "../src/types";
@@ -26,6 +26,13 @@ test("remote card file per delivery", () => {
   assert.equal(remoteCardFile("upload", null, "CB-1"), undefined);
   assert.equal(remoteCardFile("upload", machine, "CB-1"), "~/.cache/cockpit-board/cards/cb-1.md");
   assert.equal(remoteCardFile("shared", machine, "CB 1"), "/srv/shared/cockpit/cb-1.md");
+});
+
+test("herdr prompt never starts with a dash; ssh targets never do", () => {
+  assert.equal(herdrText("--wait now"), " --wait now");
+  assert.equal(herdrText("Card: x"), "Card: x");
+  assert.throws(() => checkSshTarget("-oProxyCommand=x"));
+  assert.equal(checkSshTarget("dev"), "dev");
 });
 
 test("terminal template gets the script path as one argument", () => {

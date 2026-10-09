@@ -232,7 +232,8 @@ export class AgentSettings {
 
   private machinesList(): SettingDefinitionItem {
     const s = this.s;
-    if (this.machines === null) this.discover();
+    // Discovery runs herdr: never while the launcher is off.
+    if (this.machines === null && s.agentLauncherEnabled) this.discover();
     const machines = this.machines ?? [];
     return {
       type: "list",
@@ -365,7 +366,7 @@ export class AgentSettings {
     const r = resolveMachine(m, this.s);
     const lines: string[] = [];
     const ssh = await runProcess(node, this.s.agentLocal.sshPath || "ssh",
-      ["-o", "BatchMode=yes", "-o", "ConnectTimeout=10", r.sshTarget, "true"], { env, timeoutMs: 20000 });
+      ["-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "--", r.sshTarget, "true"], { env, timeoutMs: 20000 });
     lines.push(ssh.code === 0 ? `SSH to ${r.sshTarget}: ok` : `SSH to ${r.sshTarget}: failed (${(ssh.stderr || ssh.stdout).trim().split("\n")[0]})`);
     if (m.herdrLabel) {
       const h = await runProcess(node, this.s.agentLocal.herdrPath || "herdr", ["machine", "status", m.herdrLabel, "--json"], { env, timeoutMs: 20000 });

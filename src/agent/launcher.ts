@@ -48,6 +48,20 @@ function joinPosix(...parts: string[]): string {
   return parts.map((p, i) => (i === 0 ? p.replace(/\/+$/, "") : p.replace(/^\/+|\/+$/g, ""))).filter(Boolean).join("/");
 }
 
+/**
+ * herdr parses a positional argument that starts with "-" as an option (it
+ * ignores "--"), so such a prompt would fail. A leading space is harmless.
+ */
+export function herdrText(text: string): string {
+  return text.startsWith("-") ? ` ${text}` : text;
+}
+
+/** SSH options start with "-"; a target must not. */
+export function checkSshTarget(target: string): string {
+  if (!target || target.startsWith("-")) throw new Error(`Invalid SSH target "${target}".`);
+  return target;
+}
+
 /** The pointer prompt used when the prompt itself cannot travel as text. */
 export function pointerPrompt(path: string): string {
   return `Your task is in the file ${path}. Read it and follow it.`;
@@ -215,7 +229,7 @@ function sshCmd(ctx: Ctx): string {
 
 /** Run a command string on the remote (non-interactive). */
 async function ssh(ctx: Ctx, m: ResolvedMachine, remoteCmd: string, input?: string, timeoutMs = 30000): Promise<RunResult> {
-  const r = await runProcess(ctx.node, sshCmd(ctx), ["-o", "BatchMode=yes", m.sshTarget, remoteCmd], { env: ctx.env, input, timeoutMs });
+  const r = await runProcess(ctx.node, sshCmd(ctx), ["-o", "BatchMode=yes", checkSshTarget(m.sshTarget), remoteCmd], { env: ctx.env, input, timeoutMs });
   if (r.code === 255) {
     throw new Error(`SSH to ${m.sshTarget} failed: ${firstLine(r)}. Run "ssh ${m.sshTarget}" once in a terminal (key, host check).`);
   }
@@ -302,7 +316,7 @@ async function launchHerdr(ctx: Ctx, plan: LaunchPlan, promptFile: string): Prom
     // The prompt travels as one argv element (no shell); a very long one goes
     // through a file instead.
     const text = plan.prompt.length > MAX_ARGV_PROMPT ? pointerPrompt(await promptOnTarget(ctx, plan, promptFile)) : plan.prompt;
-    await herdr(ctx, plan, ["agent", "prompt", name, text]);
+    await herdr(ctx, plan, ["agent", "prompt", name, herdrText(text)]);
   } else {
     const target = await promptOnTarget(ctx, plan, promptFile);
     const line = !plan.machine && ctx.win
@@ -367,7 +381,7 @@ async function launchTerminal(ctx: Ctx, plan: LaunchPlan, promptFile: string): P
     const remoteLine = ctx.win
       ? `${plan.cwd ? `cd ${shDir(plan.cwd)} && ` : ""}${shJoin([...argv, pointerPrompt(remotePrompt)])}; exec $SHELL -l`
       : `${posixAgentLine(argv, remotePrompt, plan.cwd)}; exec "$SHELL" -l`;
-    const sshArgv = [sshCmd(ctx), "-t", plan.machine.sshTarget, remoteLine];
+    const sshArgv = [sshCmd(ctx), "-t", checkSshTarget(plan.machine.sshTarget), remoteLine];
     script = ctx.win
       ? powershellScript([psCall(sshArgv)])
       : posixScript({ pathEnv: ctx.env.PATH, body: shJoin(sshArgv) });
@@ -393,7 +407,7 @@ async function launchTmux(ctx: Ctx, plan: LaunchPlan, promptFile: string): Promi
     const r = await ssh(ctx, m, remote);
     if (r.code !== 0) throw new Error(`tmux on ${m.name}: ${firstLine(r)}`);
     if (ctx.settings.agentLocal.attachTmux) {
-      const attach = [sshCmd(ctx), "-t", m.sshTarget, `tmux attach -t ${shq(session)}`];
+      const attach = [sshCmd(ctx), "-t", checkSshTarget(m.sshTarget), `tmux attach -t ${shq(session)}`];
       const script = ctx.win ? powershellScript([psCall(attach)]) : posixScript({ pathEnv: ctx.env.PATH, body: shJoin(attach) });
       await openTerminal(ctx, await writeScript(ctx, scriptName(ctx, "attach"), script));
     }
