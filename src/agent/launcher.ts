@@ -386,10 +386,10 @@ async function launchTmux(ctx: Ctx, plan: LaunchPlan, promptFile: string): Promi
   if (plan.machine) {
     const m = plan.machine;
     const remotePrompt = await promptOnTarget(ctx, plan, promptFile);
-    const inner = `${posixAgentLine(argv, remotePrompt, "")}; exec "$SHELL" -l`;
-    const cwdArg = plan.cwd ? ` -c ${shDir(plan.cwd)}` : "";
+    // Always cd: a new window otherwise starts wherever the tmux server did.
+    const inner = `${posixAgentLine(argv, remotePrompt, plan.cwd || "~")}; exec "$SHELL" -l`;
     const remote = `tmux has-session -t ${shq(session)} 2>/dev/null || tmux new-session -d -s ${shq(session)}; ` +
-      `tmux new-window -t ${shq(`${session}:`)} -n ${shq(windowName)}${cwdArg} ${shq(inner)}`;
+      `tmux new-window -t ${shq(`${session}:`)} -n ${shq(windowName)} ${shq(inner)}`;
     const r = await ssh(ctx, m, remote);
     if (r.code !== 0) throw new Error(`tmux on ${m.name}: ${firstLine(r)}`);
     if (ctx.settings.agentLocal.attachTmux) {

@@ -14,7 +14,7 @@ export function psq(s: string): string {
 
 /** Lowercase a-z, 0-9 and single dashes; never empty. */
 export function slug(s: string, max = 40): string {
-  const out = s.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, max).replace(/-+$/, "");
+  const out = s.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, max).replace(/-+$/, "");
   return out || "card";
 }
 
