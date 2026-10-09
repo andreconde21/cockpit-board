@@ -3,6 +3,7 @@ import type { SettingDefinition, SettingDefinitionItem, SettingDefinitionPage } 
 import { DEFAULT_COLUMNS } from "./constants";
 import type CockpitBoardPlugin from "./CockpitBoardPlugin";
 import type { ExternalCalendarSource } from "./types";
+import { AgentSettings } from "./agent/agent-settings";
 
 /**
  * Settings, declared with Obsidian's settings API (1.13+): every row is a
@@ -13,10 +14,12 @@ import type { ExternalCalendarSource } from "./types";
  */
 export class CockpitBoardSettingTab extends PluginSettingTab {
   plugin: CockpitBoardPlugin;
+  private agents: AgentSettings;
 
   constructor(app: App, plugin: CockpitBoardPlugin) {
     super(app, plugin);
     this.plugin = plugin;
+    this.agents = new AgentSettings(plugin, () => this.save(), () => this.saveAndRefresh(), () => this.update());
   }
 
   private save(): void {
@@ -181,6 +184,7 @@ export class CockpitBoardSettingTab extends PluginSettingTab {
           },
         ],
       },
+      ...this.agents.items(),
       {
         type: "group",
         heading: "Notifications",

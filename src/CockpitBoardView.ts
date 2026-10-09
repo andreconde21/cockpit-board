@@ -648,6 +648,12 @@ export class CockpitBoardView extends ItemView {
         this.plugin.cardActions.addCardItems(menu, file);
         menu.showAtMouseEvent(e);
       });
+      if (this.plugin.cardActions.agentsEnabled()) {
+        actions.createEl("button", { text: "Start agent" }).addEventListener("click", () => {
+          modal.close();
+          this.plugin.cardActions.openLaunchDialog(file);
+        });
+      }
       const editBtn = actions.createEl("button", { text: "Open in editor", cls: "mod-cta cockpit-card-modal-edit" });
       editBtn.addEventListener("click", () => {
         modal.close();

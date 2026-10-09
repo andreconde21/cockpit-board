@@ -1,8 +1,12 @@
-import { App, FuzzySuggestModal, Menu, Notice, TFile } from "obsidian";
+import { App, FuzzySuggestModal, Menu, Notice, Platform, TFile } from "obsidian";
 import type CockpitBoardPlugin from "../CockpitBoardPlugin";
+import { OUTSIDE_SOURCES } from "../constants";
+import type { AgentProfile } from "../types";
 import { isInFolder } from "../vault-helpers";
 import { REF_FORMAT_NAMES, availableFormats, formatReference, type RefFormat } from "./context";
 import { cardIdOf } from "./card-id";
+import { LaunchDialog, cardCwd, runLaunch } from "./launch-dialog";
+import { localAvailability, renderPrompt } from "./launcher";
 
 /**
  * Card-level actions shared by every place a card can be right-clicked: the
@@ -35,9 +39,79 @@ export class CardActions {
       .onClick(() => this.pickReference(file)));
   }
 
-  /** Copy and agent items for one card; used where a card has no other menu. */
+  /** Copy and agent items for one card. */
   addCardItems(menu: Menu, file: TFile): void {
     this.addCopyItems(menu, file);
+    this.addAgentItems(menu, file);
+  }
+
+  /** Launching needs the desktop app and the opt-in setting. */
+  agentsEnabled(): boolean {
+    return Platform.isDesktopApp && this.plugin.settings.agentLauncherEnabled;
+  }
+
+  defaultAgent(): AgentProfile {
+    const s = this.plugin.settings;
+    return s.agentProfiles.find((a) => a.id === s.defaultAgentId) ?? s.agentProfiles[0];
+  }
+
+  /** Cards whose text came from outside (calendar import, email). */
+  isOutside(file: TFile): boolean {
+    const source: unknown = this.app.metadataCache.getFileCache(file)?.frontmatter?.source;
+    return typeof source === "string" && OUTSIDE_SOURCES.includes(source.trim().toLowerCase());
+  }
+
+  addAgentItems(menu: Menu, file: TFile): void {
+    if (!this.agentsEnabled()) return;
+    menu.addSeparator();
+    menu.addItem((i) => i.setTitle("Start agent...").setIcon("bot")
+      .onClick(() => this.openLaunchDialog(file)));
+    const agent = this.defaultAgent();
+    if (agent) {
+      menu.addItem((i) => i.setTitle(`Start ${agent.name || agent.command}`).setIcon("play")
+        .onClick(() => { void this.quickStart(file); }));
+    }
+  }
+
+  openLaunchDialog(file: TFile): void {
+    if (!this.agentsEnabled()) {
+      new Notice("Turn on the agent launcher in settings first (desktop only).");
+      return;
+    }
+    new LaunchDialog(this.plugin, file, this.isOutside(file)).open();
+  }
+
+  /**
+   * The default agent on this computer, no dialog. Cards from outside always
+   * get the dialog, so their prompt is seen before anything runs.
+   */
+  async quickStart(file: TFile): Promise<void> {
+    if (!this.agentsEnabled()) {
+      new Notice("Turn on the agent launcher in settings first (desktop only).");
+      return;
+    }
+    if (this.isOutside(file)) {
+      this.openLaunchDialog(file);
+      return;
+    }
+    const s = this.plugin.settings;
+    const avail = await localAvailability(s);
+    const session = s.agentLocal.sessionMode || (avail.herdr ? "herdr" : "terminal");
+    if ((session === "herdr" && !avail.herdr) || (session === "tmux" && !avail.tmux)) {
+      new Notice(`${session} is not available here; pick another session.`);
+      this.openLaunchDialog(file);
+      return;
+    }
+    const agent = this.defaultAgent();
+    await runLaunch(this.plugin, {
+      file,
+      agent,
+      machine: null,
+      session,
+      delivery: "inline",
+      cwd: cardCwd(this.app, file) || s.agentLocal.cwd,
+      prompt: await renderPrompt(this.app, s, file, agent),
+    });
   }
 
   pickReference(file: TFile): void {

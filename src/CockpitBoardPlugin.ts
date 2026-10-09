@@ -14,6 +14,7 @@ import { isInFolder } from "./vault-helpers";
 import { CardActions } from "./agent/card-actions";
 import { assignMissingIds, cardFiles, ensureCardId, findDuplicateIds, frontmatterId } from "./agent/card-id";
 import { cardTitle } from "./agent/context";
+import { cleanOldRuns } from "./agent/launcher";
 import type { RefFormat } from "./agent/context";
 
 export default class CockpitBoardPlugin extends Plugin {
@@ -135,6 +136,7 @@ export default class CockpitBoardPlugin extends Plugin {
       });
       // The metadata cache is complete once it has resolved every file.
       this.registerEvent(this.app.metadataCache.on("resolved", () => this.reportDuplicateIds()));
+      if (this.cardActions.agentsEnabled()) void cleanOldRuns();
     });
 
     // Recurring + auto-archive check every hour
@@ -202,6 +204,18 @@ export default class CockpitBoardPlugin extends Plugin {
         return true;
       },
     });
+    const agentCommand = (id: string, name: string, run: (file: TFile) => void) => this.addCommand({
+      id,
+      name,
+      checkCallback: (checking) => {
+        const file = activeCard();
+        if (!file || !this.cardActions.agentsEnabled()) return false;
+        if (!checking) run(file);
+        return true;
+      },
+    });
+    agentCommand("start-agent", "Start agent on current card...", (f) => this.cardActions.openLaunchDialog(f));
+    agentCommand("start-default-agent", "Start default agent on current card", (f) => { void this.cardActions.quickStart(f); });
     this.addCommand({
       id: "assign-card-ids",
       name: "Assign an ID to cards without one",
