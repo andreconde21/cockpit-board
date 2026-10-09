@@ -1,5 +1,6 @@
 import { App, Menu, TFile } from "obsidian";
 import { ConfirmModal } from "./confirm-modal";
+import type { CardActions } from "../agent/card-actions";
 import type { CardData, CardFrontmatter, ColumnConfig, CockpitBoardSettings, TimerData } from "../types";
 import { getTomorrow, datePillClass, formatDueDisplay, getLabelColor, formatDateLocal, nextWeekStr } from "./dom-helpers";
 
@@ -35,6 +36,7 @@ export interface CardRendererContext {
   isPomodoroActive(cardPath: string): boolean;
   getPomodoroTimeRemaining(): string;
   app: App;
+  cardActions: CardActions;
 }
 
 export function createCard(card: CardData, ctx: CardRendererContext): HTMLElement {
@@ -75,6 +77,9 @@ export function createCard(card: CardData, ctx: CardRendererContext): HTMLElemen
   }
   titleEl.textContent = card.displayTitle;
   el.appendChild(titleEl);
+  if (ctx.settings.showCardId && card.id) {
+    titleEl.createSpan({ cls: "cockpit-card-id", text: card.id });
+  }
 
   // Build meta DOM (no innerHTML)
   const metaEl = buildCardMeta(card, ctx, isInToday);
@@ -237,6 +242,8 @@ function showCardContextMenu(e: MouseEvent, card: CardData, ctx: CardRendererCon
 
   menu.addItem((i) => i.setTitle("Open in new tab").setIcon("file-text")
     .onClick(() => { void ctx.app.workspace.getLeaf("tab").openFile(card.file); }));
+  menu.addSeparator();
+  ctx.cardActions.addCardItems(menu, card.file);
   menu.addSeparator();
 
   for (const col of ctx.columns) {

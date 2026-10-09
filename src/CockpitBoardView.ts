@@ -2,7 +2,7 @@ import {
   ItemView, WorkspaceLeaf, TFile, TFolder, Menu, Modal,
   MarkdownRenderer, Notice, Platform, setIcon,
 } from "obsidian";
-import type { CardData, CardFrontmatter, ColumnConfig, CalendarCardData, CockpitBoardSettings } from "./types";
+import type { CardData, CardFrontmatter, ColumnConfig, CockpitBoardSettings } from "./types";
 import { VIEW_TYPE } from "./constants";
 import { CockpitCard } from "./CockpitCard";
 import { getDropUpdates } from "./rule-engine";
@@ -19,6 +19,7 @@ import { renderArchiveSearch, loadArchiveCardsForRange, type ArchiveContext } fr
 import type CockpitBoardPlugin from "./CockpitBoardPlugin";
 import { getMarkdownFiles, isInFolder } from "./vault-helpers";
 import { nextDerivedPath, type DerivedSuffix } from "./card-naming";
+import { ensureCardId, resetCopiedId } from "./agent/card-id";
 
 export class CockpitBoardView extends ItemView {
   plugin: CockpitBoardPlugin;
@@ -624,7 +625,7 @@ export class CockpitBoardView extends ItemView {
     }
   }
 
-  async openCard(card: CardData | CalendarCardData): Promise<void> {
+  async openCard(card: { file: TFile; displayTitle: string }): Promise<void> {
     const mode = this.settings.cardOpenMode || "split";
     const file = card.file;
     if (mode === "sidebar") {
@@ -640,7 +641,14 @@ export class CockpitBoardView extends ItemView {
       const content = await this.app.vault.read(file);
       const container = modal.contentEl.createDiv({ cls: "cockpit-card-modal-content" });
       await MarkdownRenderer.render(this.app, content, container, file.path, this);
-      const editBtn = modal.contentEl.createEl("button", { text: "Open in editor", cls: "mod-cta cockpit-card-modal-edit" });
+      const actions = modal.contentEl.createDiv({ cls: "cockpit-card-modal-actions" });
+      const copyBtn = actions.createEl("button", { text: "Copy...", cls: "cockpit-card-modal-copy" });
+      copyBtn.addEventListener("click", (e) => {
+        const menu = new Menu();
+        this.plugin.cardActions.addCardItems(menu, file);
+        menu.showAtMouseEvent(e);
+      });
+      const editBtn = actions.createEl("button", { text: "Open in editor", cls: "mod-cta cockpit-card-modal-edit" });
       editBtn.addEventListener("click", () => {
         modal.close();
         void this.app.workspace.getLeaf("tab").openFile(file);
@@ -713,6 +721,7 @@ export class CockpitBoardView extends ItemView {
         fm.status = "scheduled";
         fm.completed = "";
         delete fm.order;
+        resetCopiedId(this.app, this.settings, fm);
       });
     } catch (e: unknown) {
       console.error("Cockpit Board: duplicate failed", e);
@@ -775,6 +784,7 @@ export class CockpitBoardView extends ItemView {
         fm.status = "pending";
         fm.completed = "";
         delete fm.order;
+        resetCopiedId(this.app, this.settings, fm);
       });
       this.toast("Split: original \u2192 Done, new card with remaining items");
     } catch (e: unknown) {
@@ -816,7 +826,8 @@ export class CockpitBoardView extends ItemView {
     let i = 1;
     while (this.app.vault.getAbstractFileByPath(path)) { path = `${this.settings.folder}/${slug}-${i}.md`; i++; }
 
-    await this.app.vault.create(path, `---\ntitle: "${title.replace(/"/g, '\\"')}"\nstatus: ${status}\ndue: ${due}\ntime:\ncompleted:\nproject:\nlabels: ${labels}\ncreated: ${todayStr()}\nsource: manual\n---\n\n# ${title}\n`);
+    const file = await this.app.vault.create(path, `---\ntitle: "${title.replace(/"/g, '\\"')}"\nstatus: ${status}\ndue: ${due}\ntime:\ncompleted:\nproject:\nlabels: ${labels}\ncreated: ${todayStr()}\nsource: manual\n---\n\n# ${title}\n`);
+    await ensureCardId(this.app, this.settings, file);
   }
 
   private bulkMarkDone(): Promise<void> { return bulkMarkDone(this.getSelectionContext()); }
@@ -862,6 +873,7 @@ export class CockpitBoardView extends ItemView {
       isPomodoroActive: (cardPath: string) => this.plugin.pomodoro.isActiveFor(cardPath),
       getPomodoroTimeRemaining: () => this.plugin.pomodoro.formatTimeRemaining(),
       app: this.app,
+      cardActions: this.plugin.cardActions,
       promptForTitle: (heading: string) => this.promptForTitle(heading),
       createCardInColumn: (title: string, col: ColumnConfig) => this.createCardInColumn(title, col),
       sortColumn: (colId: string, sortFn: (a: CardData, b: CardData) => number) => this.sortColumn(colId, sortFn),
@@ -891,6 +903,7 @@ export class CockpitBoardView extends ItemView {
       promptDateTime: (card) => this.promptDateTime(card),
       promptBulkDateTime: () => this.promptBulkDateTime(),
       app: this.app,
+      cardActions: this.plugin.cardActions,
     };
   }
 
@@ -902,6 +915,11 @@ export class CockpitBoardView extends ItemView {
       activeFilters: this.activeFilters,
       loadArchiveCardsForRange: (from, to) => Promise.resolve(loadArchiveCardsForRange(from, to, this.getArchiveContext())),
       openCard: (card) => { void this.openCard(card); },
+      showCardMenu: (e, card) => {
+        const menu = new Menu();
+        this.plugin.cardActions.addCardItems(menu, card.file);
+        menu.showAtMouseEvent(e);
+      },
       render: () => this.render(),
     };
   }
@@ -910,7 +928,7 @@ export class CockpitBoardView extends ItemView {
     return {
       settings: this.settings,
       app: this.app,
-      openCard: (card) => { void this.openCard(card as CardData); },
+      openCard: (card) => { void this.openCard(card); },
     };
   }
 }

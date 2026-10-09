@@ -158,6 +158,31 @@ export class CockpitBoardSettingTab extends PluginSettingTab {
       },
       {
         type: "group",
+        heading: "Card IDs",
+        items: [
+          {
+            name: "How card IDs work",
+            desc: "A card's ID is its id property when set, otherwise its file name. Copy it from the card menu.",
+          },
+          this.toggleField("Assign card IDs",
+            "Give new cards a short ID (prefix and number), one above the highest in the tasks and archive folders.",
+            () => s.assignCardIds, v => { s.assignCardIds = v; }, true),
+          {
+            ...this.textField("ID prefix", "Letters and digits, e.g. CB gives CB-1, CB-2...",
+              () => s.cardIdPrefix, v => { s.cardIdPrefix = v; }, "CB"),
+            visible: () => s.assignCardIds,
+          },
+          this.toggleField("Show card ID", "Show the ID next to the title on cards that have one.",
+            () => s.showCardId, v => { s.showCardId = v; }),
+          {
+            ...this.button("Assign an ID to cards without one",
+              "Assign now", () => { void this.plugin.assignCardIds(); }),
+            visible: () => s.assignCardIds,
+          },
+        ],
+      },
+      {
+        type: "group",
         heading: "Notifications",
         items: [
           this.textField("Reminder lead times",

@@ -1,6 +1,7 @@
 import { Menu, App, TFile } from "obsidian";
 import type { CardData, CardFrontmatter, ColumnConfig, CockpitBoardSettings } from "../types";
 import { ConfirmModal } from "./confirm-modal";
+import type { CardActions } from "../agent/card-actions";
 import { todayStr, getTomorrow, formatDateLocal, nextWeekStr } from "./dom-helpers";
 
 export interface SelectionContext {
@@ -19,6 +20,7 @@ export interface SelectionContext {
   promptDateTime(card: CardData): void;
   promptBulkDateTime(): void;
   app: App;
+  cardActions: CardActions;
 }
 
 export function toggleSelectCard(card: CardData, el: HTMLElement, ctx: SelectionContext): void {
@@ -152,6 +154,10 @@ export function showBulkMenu(e: MouseEvent, ctx: SelectionContext): void {
     }
     menu.addSeparator();
   }
+  const files = [...ctx.selectedCards.values()].map(({ card }) => card.file);
+  menu.addItem((i) => i.setTitle("Copy each card ID").setIcon("hash").onClick(() => void ctx.cardActions.copyMany(files, "id")));
+  menu.addItem((i) => i.setTitle("Copy each card path").setIcon("copy").onClick(() => void ctx.cardActions.copyMany(files, "path")));
+  menu.addSeparator();
   menu.addItem((i) => i.setTitle("Mark all as done").setIcon("check").onClick(() => void bulkMarkDone(ctx)));
   menu.addItem((i) => i.setTitle("Delete all").setIcon("trash").setWarning(true).onClick(() => void bulkDelete(ctx)));
   menu.showAtMouseEvent(e);

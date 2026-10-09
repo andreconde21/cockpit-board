@@ -70,6 +70,68 @@ export interface CockpitBoardSettings {
   pomodoroShortBreak: number;
   pomodoroLongBreak: number;
   pomodoroLongBreakInterval: number;
+  /** Give new cards a short `id:` (prefix + number). */
+  assignCardIds: boolean;
+  cardIdPrefix: string;
+  showCardId: boolean;
+  /** Master switch: no agent menu item, no process started while off. */
+  agentLauncherEnabled: boolean;
+  agentProfiles: AgentProfile[];
+  defaultAgentId: string;
+  agentPromptTemplate: string;
+  agentLocal: AgentLocalSettings;
+  /** Per-machine overrides, keyed by machine name. */
+  machineOverrides: Record<string, MachineOverride>;
+  /** Machines added by hand (SSH alias or user@host). */
+  manualMachines: string[];
+  agentRecordRuns: boolean;
+}
+
+export type SessionMode = "herdr" | "terminal" | "tmux";
+export type CardDelivery = "inline" | "upload" | "shared";
+
+export interface AgentProfile {
+  id: string;
+  name: string;
+  /** Executable name or absolute path. */
+  command: string;
+  /** Extra arguments, whitespace separated (double quotes group). */
+  args: string;
+  /** Value for `herdr agent start --kind`; empty starts it with `pane run`. */
+  herdrKind: string;
+  /** Empty = the global template. */
+  promptTemplate: string;
+}
+
+export interface AgentLocalSettings {
+  /** Empty = vault root. */
+  cwd: string;
+  /** Empty = herdr when installed, else new terminal. */
+  sessionMode: SessionMode | "";
+  /** Empty = the OS default. `{script}` is replaced with the launch script path. */
+  terminalCommand: string;
+  tmuxSession: string;
+  attachTmux: boolean;
+  /** Empty = found on the login PATH. */
+  herdrPath: string;
+  tmuxPath: string;
+  sshPath: string;
+}
+
+export interface MachineOverride {
+  /** Empty = the machine name (or herdr's SSH target). */
+  sshTarget: string;
+  /** Empty = remote home. */
+  cwd: string;
+  /** Empty = default agent. */
+  agentId: string;
+  sessionMode: SessionMode | "";
+  delivery: CardDelivery | "";
+  /** Shared folder as seen on this computer. */
+  sharedLocal: string;
+  /** The same folder as seen on the machine. */
+  sharedRemote: string;
+  hidden: boolean;
 }
 
 export interface CardData {
@@ -90,6 +152,8 @@ export interface CardData {
   totalChecks: number;
   hasDesc: boolean;
   column: string;
+  /** The `id:` frontmatter value, "" when the card has none. */
+  id: string;
   readonly displayTitle: string;
 }
 

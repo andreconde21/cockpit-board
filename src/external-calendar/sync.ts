@@ -1,4 +1,5 @@
 import { App, Notice, TFile, requestUrl } from "obsidian";
+import { ensureCardId } from "../agent/card-id";
 import type { CockpitBoardSettings, ExternalCalendarSource } from "../types";
 import { formatDateLocal, todayStr } from "../ui/dom-helpers.js";
 import { getMarkdownFilesAt } from "../vault-helpers";
@@ -355,7 +356,8 @@ export async function syncExternalSource(
       `external_uid: ${yamlStr(key)}\nexternal_source: ${yamlStr(result.sourceName)}\n---\n\n` +
       `# ${occ.title}\n\n${bodyLines.join("\n")}\n`;
 
-    await app.vault.create(path, content);
+    const file = await app.vault.create(path, content);
+    await ensureCardId(app, settings, file);
     seen[key] = path;
     knownKeys.add(key);
     result.created++;

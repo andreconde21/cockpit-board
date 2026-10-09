@@ -21,6 +21,7 @@ export class CockpitCard implements CardData {
   totalChecks: number;
   hasDesc: boolean;
   column: string;
+  id: string;
 
   constructor(file: TFile, fm: CardFrontmatter, content: string, columns: ColumnConfig[]) {
     this.file = file;
@@ -43,14 +44,19 @@ export class CockpitCard implements CardData {
     this.hasDesc = body.split("\n").some(l =>
       l.trim() !== "" && !l.startsWith("#") && !l.startsWith("- [") && !l.startsWith("> ") && !l.startsWith("## ")
     );
+    this.id = typeof fm.id === "number" ? String(fm.id) : fmStr(fm.id).trim();
     this.column = resolveColumn(this, columns);
   }
 
   get displayTitle(): string {
-    if (!this.project) return this.title;
-
-    const wikilinkMatch = this.project.match(/^\[\[([^\]|]+)(?:\|([^\]]+))?\]\]$/);
-    const projectLabel = (wikilinkMatch?.[2] || wikilinkMatch?.[1] || this.project).trim();
-    return `[${projectLabel}] ${this.title}`;
+    return formatDisplayTitle(this.title, this.project);
   }
+}
+
+/** "[Project] Title", with a [[wikilink|alias]] project shown by its label. */
+export function formatDisplayTitle(title: string, project: string): string {
+  if (!project) return title;
+  const wikilinkMatch = project.match(/^\[\[([^\]|]+)(?:\|([^\]]+))?\]\]$/);
+  const projectLabel = (wikilinkMatch?.[2] || wikilinkMatch?.[1] || project).trim();
+  return `[${projectLabel}] ${title}`;
 }
