@@ -88,7 +88,15 @@ export function mergeMachines(
     m.herdrLabel = h.label;
     if (h.destination) m.herdrDestination = h.destination;
   }
-  for (const host of sshHosts) get(host).sources.push("ssh");
+  // An SSH host that a herdr machine already points at is that machine
+  // (herdr "dev" with target "development-central"), not a second entry.
+  const herdrTargets = new Map<string, Machine>();
+  for (const m of byName.values()) if (m.herdrDestination) herdrTargets.set(m.herdrDestination, m);
+  for (const host of sshHosts) {
+    const viaHerdr = herdrTargets.get(host);
+    if (viaHerdr) { if (!viaHerdr.sources.includes("ssh")) viaHerdr.sources.push("ssh"); continue; }
+    get(host).sources.push("ssh");
+  }
   for (const name of manual.map((n) => n.trim()).filter(Boolean)) {
     const m = get(name);
     if (!m.sources.includes("manual")) m.sources.push("manual");

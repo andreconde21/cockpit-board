@@ -102,20 +102,64 @@ export function startDetached(node: NodeApis, cmd: string, args: string[], opts:
 
 let loginEnvCache: Record<string, string | undefined> | null = null;
 
+const PATH_MARK = "__COCKPIT_PATH__";
+
+/** The PATH printed between markers; shell start-up files may print around it. */
+export function extractMarkedPath(stdout: string): string | null {
+  const m = stdout.match(new RegExp(`${PATH_MARK}(.*?)${PATH_MARK}`, "s"));
+  return m && m[1].trim() ? m[1].trim() : null;
+}
+
 /**
- * The environment with the user's login PATH. Apps started from the dock or a
- * launcher get a minimal PATH and would not find `claude`, `herdr` or `tmux`.
+ * Folders where version managers and installers put programs. Added (when
+ * they exist) after the shell's PATH: mise and similar tools often only
+ * reach PATH from interactive start-up files.
+ */
+export function wellKnownBinDirs(node: NodeApis): string[] {
+  const home = node.os.homedir();
+  const dirs = [
+    `${home}/.local/bin`,
+    `${home}/.local/share/mise/shims`,
+    `${home}/.asdf/shims`,
+    `${home}/.cargo/bin`,
+    `${home}/.bun/bin`,
+    `${home}/.npm-global/bin`,
+    `${home}/.volta/bin`,
+    "/opt/homebrew/bin",
+    "/usr/local/bin",
+  ];
+  // mise without shims: ~/.local/share/mise/installs/<tool>/latest[/bin]
+  const installs = `${home}/.local/share/mise/installs`;
+  try {
+    for (const tool of node.fs.readdirSync(installs)) {
+      dirs.push(`${installs}/${tool}/latest`, `${installs}/${tool}/latest/bin`);
+    }
+  } catch { /* no mise */ }
+  return dirs.filter((d) => {
+    try { return node.fs.statSync(d).isDirectory(); } catch { return false; }
+  });
+}
+
+/**
+ * The environment with the user's PATH as their terminal has it. Apps
+ * started from the dock or a launcher get a minimal PATH and would not find
+ * `claude`, `herdr` or `tmux`. Tries an interactive login shell (where mise,
+ * nvm and the like set PATH), then a login shell, then well-known folders.
  */
 export async function loginEnv(node: NodeApis): Promise<Record<string, string | undefined>> {
   if (loginEnvCache) return loginEnvCache;
   const env: Record<string, string | undefined> = { ...node.process.env };
   if (node.process.platform !== "win32") {
     const shell = env.SHELL || "/bin/sh";
-    const r = await runProcess(node, shell, ["-lc", "printf '%s' \"$PATH\""], { timeoutMs: 5000 });
-    if (r.code === 0 && r.stdout.trim()) {
-      const parts = [...r.stdout.trim().split(":"), ...(env.PATH || "").split(":")].filter(Boolean);
-      env.PATH = [...new Set(parts)].join(":");
+    const print = `printf '%s%s%s' '${PATH_MARK}' "$PATH" '${PATH_MARK}'`;
+    let shellPath: string | null = null;
+    for (const flags of ["-ilc", "-lc"]) {
+      const r = await runProcess(node, shell, [flags, print], { timeoutMs: 5000 });
+      shellPath = extractMarkedPath(r.stdout);
+      if (shellPath) break;
     }
+    const parts = [...(shellPath ?? "").split(":"), ...(env.PATH || "").split(":"), ...wellKnownBinDirs(node)].filter(Boolean);
+    env.PATH = [...new Set(parts)].join(":");
   }
   loginEnvCache = env;
   return env;

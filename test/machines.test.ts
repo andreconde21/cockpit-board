@@ -16,6 +16,15 @@ test("herdr machine list in several shapes", () => {
   assert.deepEqual(parseHerdrMachines("not json"), []);
 });
 
+test("real herdr 0.9.3 output (laptop): target is the SSH host, no duplicate entry", () => {
+  const json = '[{"id":"1fce1c7112e854eb6cd182d9e839dd33","label":"dev","target":"development-central","session":"default","enabled":true,"selected":false}]';
+  const herdr = parseHerdrMachines(json);
+  assert.deepEqual(herdr, [{ label: "dev", destination: "development-central" }]);
+  const ms = mergeMachines(herdr, ["development-central", "production-central"], []);
+  assert.deepEqual(ms.map((m) => [m.name, m.sources.join("+")]), [["dev", "herdr+ssh"], ["production-central", "ssh"]]);
+  assert.equal(resolveMachine(ms[0], structuredClone(DEFAULT_SETTINGS)).sshTarget, "development-central");
+});
+
 test("merge by name and resolve defaults", () => {
   const ms = mergeMachines([{ label: "dev", destination: "root@1.2.3.4" }], ["dev", "prod"], ["box", "prod"]);
   assert.deepEqual(ms.map((m) => [m.name, m.sources.join("+")]), [["dev", "herdr+ssh"], ["prod", "ssh+manual"], ["box", "manual"]]);
