@@ -68,7 +68,11 @@ export class CardActions {
       .onClick(() => this.openLaunchDialog(file)));
     const agent = this.defaultAgent();
     if (agent) {
-      menu.addItem((i) => i.setTitle(`Start ${agent.name || agent.command}`).setIcon("play")
+      // Imported cards always go through the dialog; say so in the menu.
+      const title = this.isOutside(file)
+        ? `Start ${agent.name || agent.command} (check the prompt first)...`
+        : `Start ${agent.name || agent.command}`;
+      menu.addItem((i) => i.setTitle(title).setIcon("play")
         .onClick(() => { void this.quickStart(file); }));
     }
   }
@@ -91,6 +95,7 @@ export class CardActions {
       return;
     }
     if (this.isOutside(file)) {
+      new Notice("This card was imported (calendar or email): check the prompt, then click start.", 6000);
       this.openLaunchDialog(file);
       return;
     }
