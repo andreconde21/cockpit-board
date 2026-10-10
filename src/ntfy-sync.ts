@@ -3,7 +3,7 @@ import { cardIdOf } from "./agent/card-id";
 import { boardLink } from "./agent/context";
 import { parseLeadMinutes } from "./notifications";
 import {
-  addCancels, desiredReminders, hasPending, markCancelled, markPosted, mayCarryToken, ntfyTarget, parseState,
+  addCancels, desiredReminders, hasPending, heldReminders, markCancelled, markPosted, mayCarryToken, ntfyTarget, parseState,
   planSync, sequenceId, snapshotCards, staleReminders, withUniqueIds,
   type NtfyState, type ReminderCard, type SyncPlan,
 } from "./ntfy";
@@ -95,14 +95,17 @@ export class NtfyReminders {
     // A missing tasks folder would read as "no cards" and cancel everything.
     if (!(this.app.vault.getAbstractFileByPath(s.folder) instanceof TFolder)) return;
 
-    const cards = withUniqueIds(this.cards(s));
+    const { cards: read, unread } = this.cards(s);
+    const cards = withUniqueIds(read);
     const leads = parseLeadMinutes(s.notifyLeadMinutes);
+    const prev = this.state.seen;
     const desired = desiredReminders(cards, leads, now, s.ntfyArmHours);
-    addCancels(this.state, staleReminders(this.state.seen, cards, desired, leads, now, s.ntfyArmHours), target);
-    this.state.seen = snapshotCards(cards);
+    addCancels(this.state, staleReminders(prev, cards, desired, leads, now, s.ntfyArmHours, unread), target);
+    this.state.seen = snapshotCards(cards, prev, unread);
 
     const reassert = now.getTime() - this.lastReassertMs >= REASSERT_MS;
-    this.lastOk = await this.apply(planSync(this.state, desired, target, nowSec, reassert), target, gen);
+    const plan = planSync(this.state, desired, target, nowSec, reassert, heldReminders(prev, unread, leads));
+    this.lastOk = await this.apply(plan, target, gen);
     if (reassert && this.lastOk) this.lastReassertMs = now.getTime();
   }
 
@@ -169,10 +172,17 @@ export class NtfyReminders {
     }
   }
 
-  private cards(s: CockpitBoardSettings): ReminderCard[] {
+  /** Timed cards, and the paths of files the metadata cache has not read yet. */
+  private cards(s: CockpitBoardSettings): { cards: ReminderCard[]; unread: Set<string> } {
     const cards: ReminderCard[] = [];
+    const unread = new Set<string>();
     for (const file of getMarkdownFilesAt(this.app, s.folder)) {
-      const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
+      const cache = this.app.metadataCache.getFileCache(file);
+      if (!cache) {
+        unread.add(file.path);
+        continue;
+      }
+      const fm = cache.frontmatter;
       if (!fm || !fm.time || !fm.due) continue;
       cards.push({
         path: file.path,
@@ -185,7 +195,7 @@ export class NtfyReminders {
         click: boardLink(this.app, file),
       });
     }
-    return cards;
+    return { cards, unread };
   }
 
   /** A token is never sent over plain http; say so once instead of syncing. */

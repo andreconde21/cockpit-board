@@ -411,19 +411,24 @@ export default class CockpitBoardPlugin extends Plugin {
 
   // ── Phone reminders (ntfy) ──
   private startPhoneReminders(): void {
-    // Arming before the cache knows every card would cancel the reminders of
-    // the cards it has not read yet, so wait for the first full resolve. A
-    // plugin enabled mid-session may never see one; the timer covers that.
+    // Wait for the first full resolve, so the cache has read every card. A
+    // plugin enabled mid-session may never see one; the timer covers that,
+    // and files still unread then are held as last seen. The first resolve
+    // syncs again either way, with every card read.
+    let resolvedOnce = false;
     const ready = () => {
-      if (this._ntfyReady) return;
       this._ntfyReady = true;
       void this.ntfy.sync();
     };
-    this.registerEvent(this.app.metadataCache.on("resolved", ready));
-    this.registerInterval(window.setTimeout(ready, 15000));
+    this.registerEvent(this.app.metadataCache.on("resolved", () => {
+      if (resolvedOnce) return;
+      resolvedOnce = true;
+      ready();
+    }));
+    this.registerInterval(window.setTimeout(() => { if (!this._ntfyReady) ready(); }, 15000));
 
     const armSoon = debounce(() => { void this.ntfy.sync(); }, 5000, true);
-    this.register(() => { armSoon.cancel(); this._ntfySettingsSoon.cancel(); });
+    this.register(() => { armSoon.cancel(); });
     const touches = (...paths: string[]) => this._ntfyReady && this.settings.ntfyEnabled &&
       paths.some((p) => isInFolder(p, this.settings.folder));
     this.registerEvent(this.app.metadataCache.on("changed", (file) => { if (touches(file.path)) armSoon(); }));
@@ -442,14 +447,7 @@ export default class CockpitBoardPlugin extends Plugin {
    * was armed on an old server or topic, or undo everything when switched off.
    */
   phoneRemindersChanged(): void {
-    this._ntfySettingsSoon.cancel();
     if (this._ntfyReady) void this.ntfy.settingsChanged();
-  }
-
-  /** Text fields: apply once typing pauses, not on every keystroke. */
-  private _ntfySettingsSoon = debounce(() => this.phoneRemindersChanged(), 4000, true);
-  phoneSettingsEdited(): void {
-    this._ntfySettingsSoon();
   }
 
   private runNotifications(): void {

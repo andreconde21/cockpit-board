@@ -162,9 +162,15 @@ export function desiredReminders(cards: ReminderCard[], leads: number[], now: Da
   return out;
 }
 
-/** The timed cards as this device sees them now, for the next `staleReminders`. */
-export function snapshotCards(cards: ReminderCard[]): Record<string, SeenCard> {
+/**
+ * The timed cards as this device sees them now, for the next
+ * `staleReminders`. `unread` are files that exist but are not in the
+ * metadata cache yet (indexing, or Dropbox just synced them): unknown is not
+ * deleted, so they keep their last entry.
+ */
+export function snapshotCards(cards: ReminderCard[], prev: Record<string, SeenCard> = {}, unread: Set<string> = new Set()): Record<string, SeenCard> {
   const seen: Record<string, SeenCard> = {};
+  for (const path of unread) if (prev[path]) seen[path] = prev[path];
   for (const c of cards) {
     if (c.due && c.time) seen[c.path] = { id: c.id, due: c.due, time: c.time, done: c.status === "done" };
   }
@@ -187,6 +193,7 @@ export function staleReminders(
   leads: number[],
   now: Date,
   armHours: number,
+  unread: Set<string> = new Set(),
 ): { seqId: string; at: number }[] {
   const [from, until] = windowOf(now, armHours);
   const wanted = new Set(desired.map((r) => r.seqId));
@@ -199,12 +206,22 @@ export function staleReminders(
   };
   for (const c of cards) if (c.status === "done") add(c);
   for (const [path, old] of Object.entries(prev)) {
-    if (old.done) continue;
+    if (old.done || unread.has(path)) continue;
     const cur = byPath.get(path);
     if (cur && cur.status !== "done" && cur.id === old.id && cur.due === old.due && cur.time === old.time) continue;
     add(old);
   }
   return [...out].map(([seqId, at]) => ({ seqId, at }));
+}
+
+/** Reminders of unread files, as last seen: neither posted nor cancelled until the file is read. */
+export function heldReminders(prev: Record<string, SeenCard>, unread: Set<string>, leads: number[]): Set<string> {
+  const held = new Set<string>();
+  for (const path of unread) {
+    const old = prev[path];
+    if (old && !old.done) for (const { seqId } of leadTimes(old, leads)) held.add(seqId);
+  }
+  return held;
 }
 
 /** Queue cancellations, once each; a known one is left alone. */
@@ -230,10 +247,17 @@ export function pruneState(state: NtfyState, nowSec: number): void {
  * what it wants now; deletes go first. `force` re-sends everything (see
  * ntfy-sync.ts on why). With nothing desired this undoes all this device armed.
  */
-export function planSync(state: NtfyState, desired: Reminder[], target: string, nowSec: number, force: boolean): SyncPlan {
+export function planSync(
+  state: NtfyState,
+  desired: Reminder[],
+  target: string,
+  nowSec: number,
+  force: boolean,
+  held: Set<string> = new Set(),
+): SyncPlan {
   pruneState(state, nowSec);
   const plan: SyncPlan = { posts: [], deletes: [] };
-  const wanted = new Set<string>();
+  const wanted = new Set<string>(held);
   for (const r of desired) {
     wanted.add(r.seqId);
     const armed = state.armed[r.seqId];

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  addCancels, desiredReminders, emptyState, hasPending, markCancelled, markPosted, mayCarryToken, ntfyTarget,
+  addCancels, desiredReminders, emptyState, hasPending, heldReminders, markCancelled, markPosted, mayCarryToken, ntfyTarget,
   parseState, planSync, sequenceId, snapshotCards, staleReminders, withUniqueIds,
   type NtfyState, type ReminderCard,
 } from "../src/ntfy";
@@ -221,4 +221,28 @@ test("the token only travels over https or to localhost", () => {
   assert.ok(mayCarryToken("http://127.0.0.1/cockpit"));
   assert.ok(!mayCarryToken("http://ntfy.example.com/cockpit"));
   assert.ok(!mayCarryToken("http://localhost.evil.com/cockpit"));
+});
+
+test("pending: anything armed counts, so turning off undoes it", () => {
+  const state = empty();
+  assert.ok(!hasPending(state));
+  markPosted(state, desiredReminders([card()], [15], now, 24)[0], T);
+  assert.deepEqual(state.cancelled, {});
+  assert.ok(hasPending(state));
+});
+
+test("a file the cache has not read yet keeps its snapshot and reminders; a gone file does not", () => {
+  const prev = snapshotCards([card()]);
+  const unread = new Set(["Tasks/standup.md"]);
+  // Uncached: not in the card list, but not cancelled either.
+  assert.deepEqual(staleReminders(prev, [], [], [15, 1], now, 24, unread), []);
+  assert.deepEqual(snapshotCards([], prev, unread), prev);
+  const state = empty();
+  for (const r of desiredReminders([card()], [15, 1], now, 24)) markPosted(state, r, T);
+  const held = heldReminders(prev, unread, [15, 1]);
+  assert.deepEqual(planSync(state, [], T, sec(now), false, held), { posts: [], deletes: [] });
+  // Really gone from the vault: cancelled.
+  assert.equal(staleReminders(prev, [], [], [15, 1], now, 24).length, 2);
+  assert.deepEqual(snapshotCards([], prev), {});
+  assert.equal(planSync(state, [], T, sec(now), false).deletes.length, 2);
 });

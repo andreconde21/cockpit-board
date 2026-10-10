@@ -26,7 +26,7 @@ export class CockpitBoardSettingTab extends PluginSettingTab {
     void this.plugin.saveSettings();
   }
 
-  /** Apply ntfy settings still waiting for typing to pause. */
+  /** Apply ntfy settings changed since the last field was left. */
   hide(): void {
     super.hide();
     this.plugin.phoneRemindersChanged();
@@ -44,7 +44,7 @@ export class CockpitBoardSettingTab extends PluginSettingTab {
     get: () => string,
     set: (value: string) => void,
     placeholder?: string,
-    after?: () => void,
+    onCommit?: () => void,
   ): SettingDefinition {
     return {
       name,
@@ -52,7 +52,10 @@ export class CockpitBoardSettingTab extends PluginSettingTab {
       render: (setting: Setting) => {
         setting.addText(t => {
           if (placeholder) t.setPlaceholder(placeholder);
-          t.setValue(get()).onChange(v => { set(v); this.save(); after?.(); });
+          t.setValue(get()).onChange(v => { set(v); this.save(); });
+          // Leaving the field (or Enter), not every keystroke: a half-typed
+          // server address must not receive anything.
+          if (onCommit) t.inputEl.addEventListener("change", onCommit);
         });
       },
     };
@@ -268,7 +271,7 @@ export class CockpitBoardSettingTab extends PluginSettingTab {
   private phoneRemindersGroup(): SettingDefinitionItem {
     const s = this.plugin.settings;
     const on = () => s.ntfyEnabled;
-    const edited = () => this.plugin.phoneSettingsEdited();
+    const edited = () => this.plugin.phoneRemindersChanged();
     return {
       type: "group",
       heading: "Phone reminders (ntfy)",
@@ -289,13 +292,14 @@ export class CockpitBoardSettingTab extends PluginSettingTab {
               setting.addText(t => {
                 t.inputEl.type = "password";
                 t.setPlaceholder("tk_...").setValue(s.ntfyToken)
-                  .onChange(v => { s.ntfyToken = v.trim(); this.save(); edited(); });
+                  .onChange(v => { s.ntfyToken = v.trim(); this.save(); });
+                t.inputEl.addEventListener("change", edited);
               });
             },
           },
           this.numberField("Schedule ahead (hours)",
             "How far ahead reminders are put on the server (1 to 72). Later ones are added while Obsidian is open on any device.",
-            () => s.ntfyArmHours, n => { s.ntfyArmHours = Math.min(72, n); }, 1, edited),
+            () => s.ntfyArmHours, n => { s.ntfyArmHours = Math.min(72, n); }, 1),
           this.toggleField("Skip desktop notification",
             "Don't also send the desktop system notification while phone reminders are on, so a reminder buzzes once. The in-app notice still shows.",
             () => s.ntfySkipSystemNotify, v => { s.ntfySkipSystemNotify = v; }),
