@@ -11,6 +11,20 @@ cutting the release.
 
 ## [Unreleased]
 
+### Added
+- Copy card references from the card menu (board, calendar, the open card's
+  "..." menu) and as commands: card ID, path, agent context (title, links,
+  status and text), and a picker with every format. Selections copy each
+  card's ID or path.
+- Optional card IDs: new cards get `id: <PREFIX>-<n>`; a command numbers
+  existing cards; duplicate IDs from offline devices are reported.
+- `obsidian://cockpit-board?card=<id or path>` opens a card on the board.
+- Agent launcher (desktop, off by default): start Claude Code, Codex or any
+  agent with a card as its task, on this computer or a remote machine, in a
+  herdr workspace, a new terminal or a tmux window. Machines come from herdr
+  and your SSH config. Remote cards travel by SSH upload, a shared folder, or
+  inside the prompt. Imported cards always show the prompt before starting.
+
 ## [1.4.1] - 2026-10-05
 
 ### Fixed

@@ -1,4 +1,5 @@
 import { App, TFile, Notice } from "obsidian";
+import { ensureCardId } from "./agent/card-id";
 import type { CockpitBoardSettings, RecurringConfig } from "./types";
 import { formatDateLocal } from "./ui/dom-helpers.js";
 import { getMarkdownFilesAt } from "./vault-helpers";
@@ -101,7 +102,8 @@ export async function checkRecurring(
       const filename = `${slug}-recurring.md`;
       const path = `${activeFolder}/${filename}`;
       if (!app.vault.getAbstractFileByPath(path)) {
-        await app.vault.create(path, content);
+        const file = await app.vault.create(path, content);
+        await ensureCardId(app, settings, file);
         created.push(cleanTitle);
       }
     }

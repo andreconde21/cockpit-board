@@ -1,4 +1,6 @@
 import { App, Notice, TFile, requestUrl } from "obsidian";
+import { ensureCardId } from "../agent/card-id";
+import { nodeRequire } from "../node";
 import type { CockpitBoardSettings, ExternalCalendarSource } from "../types";
 import { formatDateLocal, todayStr } from "../ui/dom-helpers.js";
 import { getMarkdownFilesAt } from "../vault-helpers";
@@ -127,20 +129,6 @@ function windowFor(source: ExternalCalendarSource): { fromMs: number; toMs: numb
 
 function isAbsolutePath(path: string): boolean {
   return path.startsWith("/") || path.startsWith("~/") || /^[A-Za-z]:[\\/]/.test(path);
-}
-
-type NodeRequire = (mod: string) => unknown;
-
-/* global require -- Electron provides require on desktop; the typeof guard below keeps mobile safe */
-function nodeRequire(): NodeRequire | null {
-  // Bare require exists in desktop Electron, not on mobile — typeof guard
-  // keeps this safe everywhere.
-  try {
-    const req = (typeof require === "function" ? require : null) as NodeRequire | null;
-    return req;
-  } catch {
-    return null;
-  }
 }
 
 /** Desktop-only fallback so a file outside the vault (e.g. ~/Downloads) can sync. */
@@ -355,7 +343,8 @@ export async function syncExternalSource(
       `external_uid: ${yamlStr(key)}\nexternal_source: ${yamlStr(result.sourceName)}\n---\n\n` +
       `# ${occ.title}\n\n${bodyLines.join("\n")}\n`;
 
-    await app.vault.create(path, content);
+    const file = await app.vault.create(path, content);
+    await ensureCardId(app, settings, file);
     seen[key] = path;
     knownKeys.add(key);
     result.created++;

@@ -8,6 +8,7 @@ export function renderMonthView(
   settings: CockpitBoardSettings,
   openCard: (card: CalendarCardData) => void,
   onDayClick: (date: Date) => void,
+  cardMenu: (e: MouseEvent, card: CalendarCardData) => void,
 ): void {
   const year = calendarDate.getFullYear();
   const month = calendarDate.getMonth();
@@ -46,6 +47,7 @@ export function renderMonthView(
         }
         item.textContent = card.time ? `${card.time} ${card.title}` : card.title;
         item.addEventListener("click", (e) => { e.stopPropagation(); openCard(card); });
+        item.addEventListener("contextmenu", (e) => { e.preventDefault(); e.stopPropagation(); cardMenu(e, card); });
       }
       if (dayCards.length > 3) {
         list.createDiv({ cls: "cockpit-cal-month-more", text: `+${dayCards.length - 3} more` });

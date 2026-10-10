@@ -1423,3 +1423,58 @@ body.is-mobile.is-mobile .cockpit-cal-day-header {
   gap: 8px;
   margin-top: 16px;
 }
+
+/* ── Card IDs and card actions ── */
+.cockpit-card-id {
+  margin-left: 6px;
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-normal);
+  color: var(--text-faint);
+  font-family: var(--font-monospace);
+}
+
+.cockpit-card-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--size-4-2);
+  margin-top: var(--size-4-3);
+}
+
+/* ── Agent launch dialog ── */
+.cockpit-launch-modal {
+  width: min(720px, 92vw);
+}
+
+.cockpit-launch-warning {
+  padding: var(--size-4-2) var(--size-4-3);
+  margin-bottom: var(--size-4-2);
+  border-radius: var(--radius-s);
+  background: rgba(var(--color-orange-rgb), 0.15);
+  color: var(--text-normal);
+  border-left: 3px solid var(--color-orange);
+}
+
+.cockpit-launch-prompt {
+  width: 100%;
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+  resize: vertical;
+}
+
+.cockpit-launch-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--size-4-2);
+  margin-top: var(--size-4-3);
+}
+
+.cockpit-launch-loading {
+  color: var(--text-muted);
+}
+
+.cockpit-settings-template {
+  width: 100%;
+  min-width: 260px;
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+}

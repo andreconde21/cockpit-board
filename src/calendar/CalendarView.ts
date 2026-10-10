@@ -13,6 +13,7 @@ export interface CalendarViewContext {
   activeFilters: Set<string>;
   loadArchiveCardsForRange(from: string, to: string): Promise<CalendarCardData[]>;
   openCard(card: CardData | CalendarCardData): void;
+  showCardMenu(e: MouseEvent, card: CalendarCardData): void;
   render(): Promise<void>;
 }
 
@@ -105,6 +106,7 @@ export async function renderCalendarView(
   const container = contentEl.createDiv();
 
   const openCard = (card: CalendarCardData) => ctx.openCard(card);
+  const cardMenu = (e: MouseEvent, card: CalendarCardData) => ctx.showCardMenu(e, card);
   const onDayClick = (date: Date) => {
     ctx.calendarDate = date;
     ctx.calendarMode = "week";
@@ -112,9 +114,9 @@ export async function renderCalendarView(
   };
 
   if (ctx.calendarMode === "week") {
-    renderWeekView(container, calCards, ctx.calendarDate, ctx.settings, openCard);
+    renderWeekView(container, calCards, ctx.calendarDate, ctx.settings, openCard, cardMenu);
   } else if (ctx.calendarMode === "month") {
-    renderMonthView(container, calCards, ctx.calendarDate, ctx.settings, openCard, onDayClick);
+    renderMonthView(container, calCards, ctx.calendarDate, ctx.settings, openCard, onDayClick, cardMenu);
   } else {
     renderYearView(container, calCards, ctx.calendarDate, ctx.settings, onDayClick);
   }

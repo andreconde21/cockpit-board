@@ -3,6 +3,7 @@ import type { SettingDefinition, SettingDefinitionItem, SettingDefinitionPage } 
 import { DEFAULT_COLUMNS } from "./constants";
 import type CockpitBoardPlugin from "./CockpitBoardPlugin";
 import type { ExternalCalendarSource } from "./types";
+import { AgentSettings } from "./agent/agent-settings";
 
 /**
  * Settings, declared with Obsidian's settings API (1.13+): every row is a
@@ -13,10 +14,12 @@ import type { ExternalCalendarSource } from "./types";
  */
 export class CockpitBoardSettingTab extends PluginSettingTab {
   plugin: CockpitBoardPlugin;
+  private agents: AgentSettings;
 
   constructor(app: App, plugin: CockpitBoardPlugin) {
     super(app, plugin);
     this.plugin = plugin;
+    this.agents = new AgentSettings(plugin, () => this.save(), () => this.saveAndRefresh(), () => this.update());
   }
 
   private save(): void {
@@ -156,6 +159,32 @@ export class CockpitBoardSettingTab extends PluginSettingTab {
             () => s.clearDateOnInProgress, v => { s.clearDateOnInProgress = v; }),
         ],
       },
+      {
+        type: "group",
+        heading: "Card IDs",
+        items: [
+          {
+            name: "How card IDs work",
+            desc: "A card's ID is its id property when set, otherwise its file name. Copy it from the card menu.",
+          },
+          this.toggleField("Assign card IDs",
+            "Give new cards a short ID (prefix and number), one above the highest in the tasks and archive folders.",
+            () => s.assignCardIds, v => { s.assignCardIds = v; }, true),
+          {
+            ...this.textField("ID prefix", "Letters and digits, e.g. CB gives CB-1, CB-2...",
+              () => s.cardIdPrefix, v => { s.cardIdPrefix = v; }, "CB"),
+            visible: () => s.assignCardIds,
+          },
+          this.toggleField("Show card ID", "Show the ID next to the title on cards that have one.",
+            () => s.showCardId, v => { s.showCardId = v; }),
+          {
+            ...this.button("Assign an ID to cards without one",
+              "Assign now", () => { void this.plugin.assignCardIds(); }),
+            visible: () => s.assignCardIds,
+          },
+        ],
+      },
+      ...this.agents.items(),
       {
         type: "group",
         heading: "Notifications",

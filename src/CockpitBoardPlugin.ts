@@ -11,11 +11,17 @@ import { scheduleNotifications } from "./notifications";
 import { PomodoroEngine } from "./pomodoro";
 import { formatDateLocal, getTomorrow, parseDate, todayStr } from "./ui/dom-helpers.js";
 import { isInFolder } from "./vault-helpers";
+import { CardActions } from "./agent/card-actions";
+import { assignMissingIds, cardFiles, ensureCardId, findDuplicateIds, frontmatterId } from "./agent/card-id";
+import { cardTitle } from "./agent/context";
+import { cleanOldRuns } from "./agent/launcher";
+import type { RefFormat } from "./agent/context";
 
 export default class CockpitBoardPlugin extends Plugin {
   settings!: CockpitBoardSettings;
   activeTimers = new Map<string, TimerData>();
   pomodoro!: PomodoroEngine;
+  cardActions!: CardActions;
   private _dismissedRecurring: Record<string, string> = {};
   private _externalSeen: ExternalSeenMap = {};
   private _externalSyncing = false;
@@ -25,6 +31,7 @@ export default class CockpitBoardPlugin extends Plugin {
 
   async onload(): Promise<void> {
     await this.loadSettings();
+    this.cardActions = new CardActions(this);
 
     this.pomodoro = new PomodoroEngine(
       this.settings,
@@ -42,6 +49,7 @@ export default class CockpitBoardPlugin extends Plugin {
     this.registerObsidianProtocolHandler("cockpit-board", (params) => {
       this.app.workspace.onLayoutReady(() => {
         if (typeof params.quickadd === "string") void this.quickAddFromUri(params);
+        else if (typeof params.card === "string") void this.openCardFromUri(params.card);
         else {
           const view = typeof params.view === "string" ? params.view : undefined;
           void this.openFromUri(view);
@@ -78,6 +86,16 @@ export default class CockpitBoardPlugin extends Plugin {
       name: "Sync external calendars now",
       callback: () => { void this.syncExternalCalendars(true); },
     });
+
+    this.addCardCommands();
+
+    // Copy (and later agent) items in the tab header "..." menu and the file
+    // explorer, for files in the tasks or archive folder.
+    this.registerEvent(this.app.workspace.on("file-menu", (menu, file) => {
+      if (!this.cardActions.isCard(file)) return;
+      menu.addSeparator();
+      this.cardActions.addCardItems(menu, file);
+    }));
 
     this.addRibbonIcon("layout-grid", "Cockpit board", () => { void this.activateView(); });
     this.addSettingTab(new CockpitBoardSettingTab(this.app, this));
@@ -116,6 +134,9 @@ export default class CockpitBoardPlugin extends Plugin {
         if (this.settings.autoArchiveEnabled) void this.runAutoArchive();
         void this.syncExternalCalendars(false);
       });
+      // The metadata cache is complete once it has resolved every file.
+      this.registerEvent(this.app.metadataCache.on("resolved", () => this.reportDuplicateIds()));
+      if (this.cardActions.agentsEnabled()) void cleanOldRuns();
     });
 
     // Recurring + auto-archive check every hour
@@ -152,6 +173,101 @@ export default class CockpitBoardPlugin extends Plugin {
     }
     this.activeTimers.clear();
     this.pomodoro.destroy();
+  }
+
+  // ── Card references ──
+  private addCardCommands(): void {
+    const activeCard = (): TFile | null => {
+      const file = this.app.workspace.getActiveFile();
+      return this.cardActions.isCard(file) ? file : null;
+    };
+    const copyCommand = (id: string, name: string, format: RefFormat) => this.addCommand({
+      id,
+      name,
+      checkCallback: (checking) => {
+        const file = activeCard();
+        if (!file) return false;
+        if (!checking) void this.cardActions.copy(file, format);
+        return true;
+      },
+    });
+    copyCommand("copy-card-id", "Copy card ID", "id");
+    copyCommand("copy-card-path", "Copy card path", "path");
+    copyCommand("copy-card-context", "Copy card as agent context", "context");
+    this.addCommand({
+      id: "copy-card-reference",
+      name: "Copy card reference...",
+      checkCallback: (checking) => {
+        const file = activeCard();
+        if (!file) return false;
+        if (!checking) this.cardActions.pickReference(file);
+        return true;
+      },
+    });
+    const agentCommand = (id: string, name: string, run: (file: TFile) => void) => this.addCommand({
+      id,
+      name,
+      checkCallback: (checking) => {
+        const file = activeCard();
+        if (!file || !this.cardActions.agentsEnabled()) return false;
+        if (!checking) run(file);
+        return true;
+      },
+    });
+    agentCommand("start-agent", "Start agent on current card...", (f) => this.cardActions.openLaunchDialog(f));
+    agentCommand("start-default-agent", "Start default agent on current card", (f) => { void this.cardActions.quickStart(f); });
+    this.addCommand({
+      id: "assign-card-ids",
+      name: "Assign an ID to cards without one",
+      callback: () => { void this.assignCardIds(); },
+    });
+  }
+
+  async assignCardIds(): Promise<void> {
+    if (!this.settings.assignCardIds) {
+      new Notice("Turn on card ID assignment in settings first.");
+      return;
+    }
+    const changed = await assignMissingIds(this.app, this.settings);
+    new Notice(changed ? `Assigned ${changed} card ID${changed === 1 ? "" : "s"}` : "Every card already has a unique ID");
+  }
+
+  private _duplicatesReported = false;
+  /** Once per session: two devices offline can hand out the same number. */
+  private reportDuplicateIds(): void {
+    if (this._duplicatesReported || !this.settings.assignCardIds) return;
+    this._duplicatesReported = true;
+    const dupes = findDuplicateIds(this.app, this.settings);
+    if (dupes.size === 0) return;
+    const list = [...dupes.entries()].slice(0, 5).map(([id, files]) => `${id} (${files.length} cards)`).join(", ");
+    new Notice(`Cockpit board: duplicate card IDs: ${list}. Run "Assign an ID to cards without one" to renumber the newer cards.`, 10000);
+  }
+
+  /** obsidian://cockpit-board?vault=X&card=<id or vault path>: open that card. */
+  async openCardFromUri(ref: string): Promise<void> {
+    const file = this.findCard(ref.trim());
+    if (!file) {
+      new Notice(`Card not found: ${ref}`);
+      await this.openFromUri("board");
+      return;
+    }
+    await this.openFromUri("board");
+    const view = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0]?.view as CockpitBoardView | undefined;
+    if (view) await view.openCard({ file, displayTitle: cardTitle(this.app, file) });
+  }
+
+  /** A card by vault path (with or without .md), `id:`, or basename. */
+  findCard(ref: string): TFile | null {
+    if (!ref) return null;
+    for (const path of [ref, `${ref}.md`]) {
+      const f = this.app.vault.getAbstractFileByPath(path);
+      if (f instanceof TFile) return f;
+    }
+    const files = cardFiles(this.app, this.settings);
+    const lower = ref.toLowerCase();
+    return files.find((f) => frontmatterId(this.app, f).toLowerCase() === lower)
+      ?? files.find((f) => f.basename.toLowerCase() === lower)
+      ?? null;
   }
 
   // ── Pomodoro ──
@@ -354,6 +470,13 @@ export default class CockpitBoardPlugin extends Plugin {
       if (typeof src.daysBack !== "number" || isNaN(src.daysBack)) src.daysBack = 7;
       if (typeof src.daysAhead !== "number" || isNaN(src.daysAhead)) src.daysAhead = 60;
     }
+    const defaults = DEFAULT_SETTINGS;
+    this.settings.agentLocal = { ...defaults.agentLocal, ...(this.settings.agentLocal || {}) };
+    if (!Array.isArray(this.settings.agentProfiles) || this.settings.agentProfiles.length === 0) {
+      this.settings.agentProfiles = JSON.parse(JSON.stringify(defaults.agentProfiles)) as CockpitBoardSettings["agentProfiles"];
+    }
+    if (!this.settings.machineOverrides || typeof this.settings.machineOverrides !== "object") this.settings.machineOverrides = {};
+    if (!Array.isArray(this.settings.manualMachines)) this.settings.manualMachines = [];
     if (typeof this.settings.externalSyncIntervalMinutes !== "number" ||
       isNaN(this.settings.externalSyncIntervalMinutes)) {
       this.settings.externalSyncIntervalMinutes = 60;
@@ -436,8 +559,9 @@ export default class CockpitBoardPlugin extends Plugin {
       i++;
     }
 
-    await this.app.vault.create(path,
+    const file = await this.app.vault.create(path,
       `---\ntitle: "${title.replace(/"/g, '\\"')}"\nstatus: scheduled\ndue: ${due}\ntime: ${time}\ncompleted:\nproject: "${project.replace(/"/g, '\\"')}"\nlabels: ${labelsYaml}\ncreated: ${todayStr()}\nsource: quickadd\n---\n\n# ${title}\n`);
+    await ensureCardId(this.app, this.settings, file);
 
     const when = [due, time].filter(Boolean).join(" ");
     new Notice(`⚡ Added: ${title}${when ? ` (${when})` : ""}`, 4000);

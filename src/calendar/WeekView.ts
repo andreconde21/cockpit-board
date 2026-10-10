@@ -7,6 +7,7 @@ export function renderWeekView(
   calendarDate: Date,
   settings: CockpitBoardSettings,
   openCard: (card: CalendarCardData) => void,
+  cardMenu: (e: MouseEvent, card: CalendarCardData) => void,
 ): void {
   const monday = startOfWeek(calendarDate);
   const today = todayStr();
@@ -40,6 +41,7 @@ export function renderWeekView(
       }
       cardEl.createSpan({ text: card.displayTitle, cls: "cockpit-cal-card-text" });
       cardEl.addEventListener("click", () => openCard(card));
+        cardEl.addEventListener("contextmenu", (e) => { e.preventDefault(); e.stopPropagation(); cardMenu(e, card); });
     }
   }
 
@@ -82,6 +84,7 @@ export function renderWeekView(
         cardEl.textContent = `${card.time} ${card.displayTitle}`;
         cardEl.title = `${card.displayTitle}\n${card.time}${card.project ? `\nProject: ${card.project}` : ""}${card.labels.length ? `\nLabels: ${card.labels.join(", ")}` : ""}`;
         cardEl.addEventListener("click", (e) => { e.stopPropagation(); openCard(card); });
+        cardEl.addEventListener("contextmenu", (e) => { e.preventDefault(); e.stopPropagation(); cardMenu(e, card); });
       }
     }
   }

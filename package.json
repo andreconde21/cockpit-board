@@ -7,7 +7,8 @@
     "dev": "node esbuild.config.mjs",
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
     "deploy": "npm run build && cp main.js styles.css manifest.json \"$HOME/Dropbox/Obsidian/Cockpit/.obsidian/plugins/cockpit-board/\"",
-    "lint": "npm --prefix tools/lint ci --ignore-scripts --legacy-peer-deps && npm --prefix tools/lint run lint"
+    "lint": "npm --prefix tools/lint ci --ignore-scripts --legacy-peer-deps && npm --prefix tools/lint run lint",
+    "test": "node tools/test/run.mjs"
   },
   "keywords": [
     "obsidian",
