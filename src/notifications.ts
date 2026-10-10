@@ -25,6 +25,10 @@ export function scheduleNotifications(
   const now = new Date();
   const todayStr = formatDateLocal(now);
   const leads = parseLeadMinutes(settings.notifyLeadMinutes);
+  // The phone buzzes for the same reminder; a second buzz from the laptop
+  // adds nothing. The in-app Notice stays.
+  const phoneTakesOver = settings.ntfyEnabled && settings.ntfySkipSystemNotify &&
+    !!settings.ntfyServer.trim() && !!settings.ntfyTopic.trim();
 
   // Keys carry the date, so yesterday's entries are dead weight in a
   // long-running session.
@@ -60,15 +64,18 @@ export function scheduleNotifications(
       if (l >= lead) notifiedToday.add(`${child.path}-${todayStr}-${l}`);
     }
 
-    const title = fmStr(fm.title) || child.basename;
-    const project = fmStr(fm.project);
-    const prefix = project ? `[${project}] ` : "";
     const mins = Math.max(1, Math.round(minutesUntil));
-    const body = `${prefix}${title} starts in ${mins} minute${mins === 1 ? "" : "s"}`;
+    const body = reminderText(fmStr(fm.title) || child.basename, fmStr(fm.project), mins);
 
     new Notice(`🔔 ${body}`, 10000);
-    if (settings.notifySystem) systemNotify(body, timeStr);
+    if (settings.notifySystem && !phoneTakesOver) systemNotify(body, timeStr);
   }
+}
+
+/** "[Project] Title starts in N minutes", shared with the phone push. */
+export function reminderText(title: string, project: string, mins: number): string {
+  const prefix = project ? `[${project}] ` : "";
+  return `${prefix}${title} starts in ${mins} minute${mins === 1 ? "" : "s"}`;
 }
 
 // An in-app Notice is only seen when Obsidian is on screen; a desktop

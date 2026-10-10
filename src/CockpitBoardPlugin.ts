@@ -1,4 +1,4 @@
-import { Notice, Plugin, TFile } from "obsidian";
+import { Notice, Plugin, TFile, debounce } from "obsidian";
 import type { ObsidianProtocolData } from "obsidian";
 import type { CardFrontmatter, CockpitBoardSettings, TimerData, PomodoroSession } from "./types";
 import { VIEW_TYPE, DEFAULT_SETTINGS, DEFAULT_COLUMNS } from "./constants";
@@ -8,6 +8,7 @@ import { checkRecurring } from "./recurring";
 import { archiveDoneCards } from "./archive/AutoArchive";
 import { deletedSeenKeys, syncAllExternalCalendars, type ExternalSeenMap } from "./external-calendar/sync";
 import { scheduleNotifications } from "./notifications";
+import { NtfyReminders } from "./ntfy-sync";
 import { PomodoroEngine } from "./pomodoro";
 import { formatDateLocal, getTomorrow, parseDate, todayStr } from "./ui/dom-helpers.js";
 import { isInFolder } from "./vault-helpers";
@@ -22,16 +23,19 @@ export default class CockpitBoardPlugin extends Plugin {
   activeTimers = new Map<string, TimerData>();
   pomodoro!: PomodoroEngine;
   cardActions!: CardActions;
+  ntfy!: NtfyReminders;
   private _dismissedRecurring: Record<string, string> = {};
   private _externalSeen: ExternalSeenMap = {};
   private _externalSyncing = false;
   private _lastExternalSyncMs = 0;
   private _notifiedToday = new Set<string>();
   private _statusBarEl: HTMLElement | null = null;
+  private _ntfyReady = false;
 
   async onload(): Promise<void> {
     await this.loadSettings();
     this.cardActions = new CardActions(this);
+    this.ntfy = new NtfyReminders(this.app, () => this.settings);
 
     this.pomodoro = new PomodoroEngine(
       this.settings,
@@ -137,6 +141,7 @@ export default class CockpitBoardPlugin extends Plugin {
       // The metadata cache is complete once it has resolved every file.
       this.registerEvent(this.app.metadataCache.on("resolved", () => this.reportDuplicateIds()));
       if (this.cardActions.agentsEnabled()) void cleanOldRuns();
+      this.startPhoneReminders();
     });
 
     // Recurring + auto-archive check every hour
@@ -402,6 +407,39 @@ export default class CockpitBoardPlugin extends Plugin {
       const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
       if (leaf?.view) void (leaf.view as CockpitBoardView).render();
     }
+  }
+
+  // ── Phone reminders (ntfy) ──
+  private startPhoneReminders(): void {
+    // Arming before the cache knows every card would cancel the reminders of
+    // the cards it has not read yet, so wait for the first full resolve. A
+    // plugin enabled mid-session may never see one; the timer covers that.
+    const ready = () => {
+      if (this._ntfyReady) return;
+      this._ntfyReady = true;
+      void this.ntfy.sync();
+    };
+    this.registerEvent(this.app.metadataCache.on("resolved", ready));
+    this.registerInterval(window.setTimeout(ready, 15000));
+
+    const armSoon = debounce(() => { void this.ntfy.sync(); }, 5000, true);
+    const touches = (...paths: string[]) => this._ntfyReady && this.settings.ntfyEnabled &&
+      paths.some((p) => isInFolder(p, this.settings.folder));
+    this.registerEvent(this.app.metadataCache.on("changed", (file) => { if (touches(file.path)) armSoon(); }));
+    this.registerEvent(this.app.vault.on("delete", (file) => { if (touches(file.path)) armSoon(); }));
+    this.registerEvent(this.app.vault.on("rename", (file, oldPath) => { if (touches(file.path, oldPath)) armSoon(); }));
+
+    // Cards entering the arm-ahead window, and the 30-minute re-send.
+    this.registerInterval(window.setInterval(() => {
+      if (this._ntfyReady) void this.ntfy.sync();
+    }, 600000));
+  }
+
+  /** After the ntfy settings change: arm with the new ones, or cancel when switched off. */
+  phoneRemindersChanged(): void {
+    if (!this._ntfyReady) return;
+    if (this.settings.ntfyEnabled) void this.ntfy.sync();
+    else void this.ntfy.cancelAll();
   }
 
   private runNotifications(): void {

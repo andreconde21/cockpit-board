@@ -65,6 +65,17 @@ export interface CockpitBoardSettings {
   clearDateOnInProgress: boolean;
   notifyLeadMinutes: string;
   notifySystem: boolean;
+  /** Phone reminders through ntfy. Off: no network call at all. */
+  ntfyEnabled: boolean;
+  /** e.g. https://ntfy.sh, no trailing topic. */
+  ntfyServer: string;
+  ntfyTopic: string;
+  /** Write-only access token for the one topic; data.json syncs with the vault. */
+  ntfyToken: string;
+  /** How far ahead reminders are scheduled on the server, in hours (1-72). */
+  ntfyArmHours: number;
+  /** Skip the desktop system notification while phone push is on. */
+  ntfySkipSystemNotify: boolean;
   pomodoroEnabled: boolean;
   pomodoroWork: number;
   pomodoroShortBreak: number;
