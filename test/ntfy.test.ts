@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  desiredReminders, markCancelled, markPosted, ntfyTarget, parseState, planSync, sequenceId,
+  addCancels, desiredReminders, emptyState, hasPending, markCancelled, markPosted, mayCarryToken, ntfyTarget,
+  parseState, planSync, sequenceId, snapshotCards, staleReminders, withUniqueIds,
   type NtfyState, type ReminderCard,
 } from "../src/ntfy";
 
@@ -12,10 +13,10 @@ const now = new Date(2026, 9, 10, 9, 0);
 const sec = (d: Date) => Math.floor(d.getTime() / 1000);
 
 const card = (over: Partial<ReminderCard> = {}): ReminderCard => ({
-  id: "CB-12", title: "Standup", project: "Acme", status: "", due: "2026-10-10", time: "10:30",
+  path: "Tasks/standup.md", id: "CB-12", title: "Standup", project: "Acme", status: "", due: "2026-10-10", time: "10:30",
   click: "obsidian://cockpit-board?vault=V&card=CB-12", ...over,
 });
-const empty = (): NtfyState => ({ armed: {}, cancelled: {} });
+const empty = (): NtfyState => emptyState();
 
 test("sequence IDs: plain card IDs kept, others slugged with a hash, always valid for ntfy", () => {
   assert.equal(sequenceId("CB-12", "2026-10-10", 15), "cb-CB-12-2026-10-10-15");
@@ -139,9 +140,10 @@ test("plan: a new server or topic posts there and cancels the old copy", () => {
 test("stored state is read defensively", () => {
   assert.deepEqual(parseState(null), empty());
   assert.deepEqual(parseState("junk"), empty());
-  const s = parseState({ armed: { a: { hash: "h", at: 1, target: T }, b: { at: "x" } }, cancelled: { c: { at: 2, target: T } } });
+  const s = parseState({ armed: { a: { hash: "h", at: 1, target: T }, b: { at: "x" } }, cancelled: { c: { at: 2, target: T } }, seen: { p: { id: "x", due: "d", time: "t" }, q: 3 } });
   assert.deepEqual(Object.keys(s.armed), ["a"]);
   assert.deepEqual(s.cancelled.c, { at: 2, target: T, done: false });
+  assert.deepEqual(s.seen, { p: { id: "x", due: "d", time: "t", done: false } });
 });
 
 test("target needs an http(s) server and a valid topic", () => {
@@ -149,4 +151,74 @@ test("target needs an http(s) server and a valid topic", () => {
   assert.equal(ntfyTarget("", "cockpit"), "");
   assert.equal(ntfyTarget("ntfy.sh", "cockpit"), "");
   assert.equal(ntfyTarget("https://ntfy.sh", "my topic"), "");
+});
+
+// Another device posted these; this one only ever saw the cards.
+const stale = (before: ReminderCard[], after: ReminderCard[], at = now) =>
+  staleReminders(snapshotCards(before), after, desiredReminders(after, [15, 1], at, 24), [15, 1], at, 24).map((r) => r.seqId).sort();
+
+test("stale reminders: a card done elsewhere cancels its own future reminders, never fired ones", () => {
+  assert.deepEqual(stale([], [card({ status: "done" })]), ["cb-CB-12-2026-10-10-1", "cb-CB-12-2026-10-10-15"]);
+  // 10:20: the 15-minute reminder fired at 10:15 and is left alone.
+  assert.deepEqual(stale([], [card({ status: "done" })], new Date(2026, 9, 10, 10, 20)), ["cb-CB-12-2026-10-10-1"]);
+  assert.deepEqual(stale([], [card({ status: "done", due: "2026-10-09" })]), []);
+});
+
+test("stale reminders: re-dated, deleted or moved cards cancel the old date's IDs", () => {
+  const before = [card()];
+  assert.deepEqual(stale(before, [card({ due: "2026-10-11" })]), ["cb-CB-12-2026-10-10-1", "cb-CB-12-2026-10-10-15"]);
+  assert.deepEqual(stale(before, []), ["cb-CB-12-2026-10-10-1", "cb-CB-12-2026-10-10-15"]);
+  assert.deepEqual(stale(before, [card({ time: "" })]), ["cb-CB-12-2026-10-10-1", "cb-CB-12-2026-10-10-15"]);
+  // ID changed (an id was assigned): the old IDs go, the new ones are posted.
+  assert.deepEqual(stale(before, [card({ id: "CB-99" })]), ["cb-CB-12-2026-10-10-1", "cb-CB-12-2026-10-10-15"]);
+});
+
+test("stale reminders: retimed on the same day keeps its IDs (replaced by a post), unchanged cards cancel nothing", () => {
+  assert.deepEqual(stale([card()], [card({ time: "11:00" })]), []);
+  assert.deepEqual(stale([card()], [card()]), []);
+  // Renamed file, same ID and time: same reminders, nothing to cancel.
+  assert.deepEqual(stale([card()], [card({ path: "Tasks/other.md" })]), []);
+  // Retimed so the 15-minute reminder is now too close: only that one goes.
+  assert.deepEqual(stale([card()], [card({ time: "09:10" })]), ["cb-CB-12-2026-10-10-15"]);
+});
+
+test("cancellations are queued once, sent before anything is re-sent, and kept until sent", () => {
+  const state = empty();
+  const n = sec(now);
+  addCancels(state, [{ seqId: "cb-x-2026-10-10-15", at: n + 600 }], T);
+  addCancels(state, [{ seqId: "cb-x-2026-10-10-15", at: n + 600 }], T);
+  assert.ok(hasPending(state));
+  assert.deepEqual(planSync(state, [], T, n, false).deletes, [{ seqId: "cb-x-2026-10-10-15", target: T }]);
+  markCancelled(state, "cb-x-2026-10-10-15", T, true);
+  assert.ok(!hasPending(state));
+  addCancels(state, [{ seqId: "cb-x-2026-10-10-15", at: n + 600 }], T);
+  assert.equal(planSync(state, [], T, n, false).deletes.length, 0);
+});
+
+test("turned off: planning with nothing desired undoes everything this device armed", () => {
+  const state = empty();
+  for (const r of desiredReminders([card()], [15, 1], now, 24)) markPosted(state, r, T);
+  const plan = planSync(state, [], "", sec(now), false);
+  assert.equal(plan.posts.length, 0);
+  assert.deepEqual(plan.deletes.map((d) => d.target), [T, T]);
+  markCancelled(state, plan.deletes[0].seqId, T, true);
+  markCancelled(state, plan.deletes[1].seqId, T, false);
+  assert.ok(hasPending(state));
+  assert.equal(planSync(state, [], "", sec(now), false).deletes.length, 1);
+});
+
+test("duplicate card IDs get their path folded in, so they don't share reminders", () => {
+  const cards = withUniqueIds([card(), card({ path: "Tasks/b.md" }), card({ id: "CB-13", path: "Tasks/c.md" })]);
+  assert.deepEqual(cards.map((c) => c.id), ["CB-12@Tasks/standup.md", "CB-12@Tasks/b.md", "CB-13"]);
+  const ids = desiredReminders(cards, [15], now, 24).map((r) => r.seqId);
+  assert.equal(new Set(ids).size, 3);
+  for (const id of ids) assert.match(id, SEQ);
+});
+
+test("the token only travels over https or to localhost", () => {
+  assert.ok(mayCarryToken("https://ntfy.sh/cockpit"));
+  assert.ok(mayCarryToken("http://localhost:8080/cockpit"));
+  assert.ok(mayCarryToken("http://127.0.0.1/cockpit"));
+  assert.ok(!mayCarryToken("http://ntfy.example.com/cockpit"));
+  assert.ok(!mayCarryToken("http://localhost.evil.com/cockpit"));
 });

@@ -3,16 +3,18 @@ import { cardIdOf } from "./agent/card-id";
 import { boardLink } from "./agent/context";
 import { parseLeadMinutes } from "./notifications";
 import {
-  desiredReminders, markCancelled, markPosted, ntfyTarget, parseState, planSync,
-  type NtfyState, type Reminder, type ReminderCard,
+  addCancels, desiredReminders, hasPending, markCancelled, markPosted, mayCarryToken, ntfyTarget, parseState,
+  planSync, sequenceId, snapshotCards, staleReminders, withUniqueIds,
+  type NtfyState, type ReminderCard, type SyncPlan,
 } from "./ntfy";
 import type { CockpitBoardSettings } from "./types";
 import { fmStr } from "./ui/dom-helpers.js";
 import { getMarkdownFilesAt } from "./vault-helpers";
 
-// What this device armed lives in localStorage, not data.json: data.json
-// syncs, and each device must remember its own posts across restarts so a
-// reminder it armed before closing is still cancelled when the card changes.
+// What this device armed, still has to cancel, and the timed cards it last
+// saw live in localStorage, not data.json: data.json syncs, and each device
+// must remember its own posts across restarts so a reminder it armed before
+// closing is still cancelled when the card changes.
 const STORAGE_KEY = "cockpit-board-ntfy";
 
 // Every device only posts what changed against its own record, so a device
@@ -31,56 +33,77 @@ function isFatal(status: number): boolean {
 
 export class NtfyReminders {
   private state: NtfyState;
-  private running = false;
-  private again = false;
+  // Runs one at a time; a settings change bumps the generation, which stops
+  // a run in flight so it does not keep posting with the old settings.
+  private chain: Promise<void> = Promise.resolve();
+  private queued = false;
+  private generation = 0;
+  private lastOk = false;
   private lastReassertMs = Date.now();
   private warned = false;
   private authWarned = false;
+  private httpWarned = false;
 
   constructor(private app: App, private settings: () => CockpitBoardSettings) {
     this.state = parseState(app.loadLocalStorage(STORAGE_KEY));
   }
 
-  /** Bring the server in line with the cards. No-op while off or unconfigured. */
-  async sync(): Promise<void> {
-    if (this.running) {
-      this.again = true;
-      return;
-    }
-    this.running = true;
-    try {
-      do {
-        this.again = false;
-        await this.syncOnce();
-      } while (this.again);
-    } finally {
-      this.running = false;
-    }
+  /** Bring the server in line with the cards; at most one run waits behind the current one. */
+  sync(): Promise<void> {
+    if (this.queued) return this.chain;
+    this.queued = true;
+    this.chain = this.chain
+      .then(() => {
+        this.queued = false;
+        return this.syncOnce(this.generation);
+      })
+      .catch((e) => { console.warn("Cockpit Board: phone reminder sync failed", e); });
+    return this.chain;
   }
 
-  private async syncOnce(): Promise<void> {
+  /** The ntfy settings changed: stop the run in flight and sync with the new ones. */
+  settingsChanged(): Promise<void> {
+    this.generation++;
+    return this.sync();
+  }
+
+  /** True when this reminder is on the server as of this device's last, successful run. */
+  isPushed(cardId: string, date: string, lead: number): boolean {
     const s = this.settings();
+    if (!s.ntfyEnabled || !this.lastOk) return false;
+    const armed = this.state.armed[sequenceId(cardId, date, lead)];
+    return !!armed && armed.target === ntfyTarget(s.ntfyServer, s.ntfyTopic);
+  }
+
+  private async syncOnce(gen: number): Promise<void> {
+    const s = this.settings();
+    const now = new Date();
+    const nowSec = Math.floor(now.getTime() / 1000);
+    this.lastOk = false;
+
+    if (!s.ntfyEnabled) {
+      // Off: the only requests are DELETEs that undo what this device armed,
+      // retried until they go through. Nothing pending, nothing sent.
+      if (!hasPending(this.state)) return;
+      this.state.seen = {};
+      await this.apply(planSync(this.state, [], "", nowSec, false), "", gen);
+      return;
+    }
+
     const target = ntfyTarget(s.ntfyServer, s.ntfyTopic);
-    if (!s.ntfyEnabled || !target) return;
+    if (!target || !this.tokenOk(target)) return;
     // A missing tasks folder would read as "no cards" and cancel everything.
     if (!(this.app.vault.getAbstractFileByPath(s.folder) instanceof TFolder)) return;
 
-    const now = Date.now();
-    const reassert = now - this.lastReassertMs >= REASSERT_MS;
-    const desired = desiredReminders(this.cards(s), parseLeadMinutes(s.notifyLeadMinutes), new Date(now), s.ntfyArmHours);
-    const plan = planSync(this.state, desired, target, Math.floor(now / 1000), reassert);
-    const done = await this.apply(plan.posts, plan.deletes, target);
-    if (reassert && done) this.lastReassertMs = now;
-  }
+    const cards = withUniqueIds(this.cards(s));
+    const leads = parseLeadMinutes(s.notifyLeadMinutes);
+    const desired = desiredReminders(cards, leads, now, s.ntfyArmHours);
+    addCancels(this.state, staleReminders(this.state.seen, cards, desired, leads, now, s.ntfyArmHours), target);
+    this.state.seen = snapshotCards(cards);
 
-  /** Turning the feature off: cancel everything this device armed, then forget it. */
-  async cancelAll(): Promise<void> {
-    const s = this.settings();
-    const target = ntfyTarget(s.ntfyServer, s.ntfyTopic);
-    const plan = planSync(this.state, [], target, Math.floor(Date.now() / 1000), false);
-    if (plan.deletes.length) await this.apply([], plan.deletes, target);
-    this.state = { armed: {}, cancelled: {} };
-    this.save();
+    const reassert = now.getTime() - this.lastReassertMs >= REASSERT_MS;
+    this.lastOk = await this.apply(planSync(this.state, desired, target, nowSec, reassert), target, gen);
+    if (reassert && this.lastOk) this.lastReassertMs = now.getTime();
   }
 
   /** Settings button: an immediate message, to check server, topic and token. */
@@ -91,6 +114,10 @@ export class NtfyReminders {
       new Notice("Set the ntfy server (https://...) and topic first.");
       return;
     }
+    if (!this.tokenOk(target, false)) {
+      new Notice("The access token is only sent over https://. Use an https server address.", 10000);
+      return;
+    }
     const status = await this.request("POST", target, { Title: "Cockpit board", Tags: "bell" },
       "Test push from Cockpit board. Reminders will look like this.");
     if (status >= 200 && status < 300) new Notice("Test push sent. It should show on your phone now.");
@@ -99,11 +126,29 @@ export class NtfyReminders {
     else new Notice(`Test push failed (HTTP ${status}).`);
   }
 
-  /** Runs posts, then deletes; stops at the first error the rest would repeat. True when all went out. */
-  private async apply(posts: Reminder[], deletes: { seqId: string; target: string }[], target: string): Promise<boolean> {
+  /**
+   * Deletes first, so a failing post never holds back a cancellation; stops
+   * at the first error the rest would repeat, or when the settings changed.
+   * True when everything went out.
+   */
+  private async apply(plan: SyncPlan, target: string, gen: number): Promise<boolean> {
     let ok = true;
     try {
-      for (const r of posts) {
+      for (const d of plan.deletes) {
+        if (gen !== this.generation) return false;
+        if (!d.target) continue;
+        const status = await this.request("DELETE", `${d.target}/${d.seqId}`, {});
+        // 404: already gone (fired or cancelled elsewhere), which is the goal.
+        const sent = (status >= 200 && status < 300) || status === 404;
+        markCancelled(this.state, d.seqId, d.target, sent);
+        if (!sent) {
+          ok = false;
+          this.report(status);
+          if (isFatal(status)) return false;
+        }
+      }
+      for (const r of plan.posts) {
+        if (gen !== this.generation) return false;
         const status = await this.request("POST", target, {
           At: String(r.at),
           "X-Sequence-ID": r.seqId,
@@ -113,18 +158,6 @@ export class NtfyReminders {
         }, r.body);
         if (status >= 200 && status < 300) markPosted(this.state, r, target);
         else {
-          ok = false;
-          this.report(status);
-          if (isFatal(status)) return false;
-        }
-      }
-      for (const d of deletes) {
-        if (!d.target) continue;
-        const status = await this.request("DELETE", `${d.target}/${d.seqId}`, {});
-        // 404: already gone (fired or cancelled elsewhere), which is the goal.
-        const sent = (status >= 200 && status < 300) || status === 404;
-        markCancelled(this.state, d.seqId, d.target, sent);
-        if (!sent) {
           ok = false;
           this.report(status);
           if (isFatal(status)) return false;
@@ -142,6 +175,7 @@ export class NtfyReminders {
       const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
       if (!fm || !fm.time || !fm.due) continue;
       cards.push({
+        path: file.path,
         id: cardIdOf(this.app, file),
         title: fmStr(fm.title) || file.basename,
         project: fmStr(fm.project),
@@ -154,10 +188,20 @@ export class NtfyReminders {
     return cards;
   }
 
+  /** A token is never sent over plain http; say so once instead of syncing. */
+  private tokenOk(url: string, warn = true): boolean {
+    if (!this.settings().ntfyToken.trim() || mayCarryToken(url)) return true;
+    if (warn && !this.httpWarned) {
+      this.httpWarned = true;
+      new Notice("Cockpit board: phone reminders are paused, the ntfy token is only sent over https://.", 10000);
+    }
+    return false;
+  }
+
   /** HTTP status, or 0 when the server could not be reached. */
   private async request(method: string, url: string, headers: Record<string, string>, body?: string): Promise<number> {
     const token = this.settings().ntfyToken.trim();
-    if (token) headers.Authorization = `Bearer ${token}`;
+    if (token && mayCarryToken(url)) headers.Authorization = `Bearer ${token}`;
     try {
       const res = await requestUrl({ url, method, headers, body, contentType: "text/plain; charset=utf-8", throw: false });
       return res.status;

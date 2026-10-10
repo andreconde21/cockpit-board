@@ -423,27 +423,38 @@ export default class CockpitBoardPlugin extends Plugin {
     this.registerInterval(window.setTimeout(ready, 15000));
 
     const armSoon = debounce(() => { void this.ntfy.sync(); }, 5000, true);
+    this.register(() => { armSoon.cancel(); this._ntfySettingsSoon.cancel(); });
     const touches = (...paths: string[]) => this._ntfyReady && this.settings.ntfyEnabled &&
       paths.some((p) => isInFolder(p, this.settings.folder));
     this.registerEvent(this.app.metadataCache.on("changed", (file) => { if (touches(file.path)) armSoon(); }));
     this.registerEvent(this.app.vault.on("delete", (file) => { if (touches(file.path)) armSoon(); }));
     this.registerEvent(this.app.vault.on("rename", (file, oldPath) => { if (touches(file.path, oldPath)) armSoon(); }));
 
-    // Cards entering the arm-ahead window, and the 30-minute re-send.
+    // Cards entering the arm-ahead window, the 30-minute re-send, and retries
+    // of DELETEs that failed (also while off; nothing is sent when none are left).
     this.registerInterval(window.setInterval(() => {
       if (this._ntfyReady) void this.ntfy.sync();
     }, 600000));
   }
 
-  /** After the ntfy settings change: arm with the new ones, or cancel when switched off. */
+  /**
+   * After the ntfy settings change: arm with the new ones, cancelling what
+   * was armed on an old server or topic, or undo everything when switched off.
+   */
   phoneRemindersChanged(): void {
-    if (!this._ntfyReady) return;
-    if (this.settings.ntfyEnabled) void this.ntfy.sync();
-    else void this.ntfy.cancelAll();
+    this._ntfySettingsSoon.cancel();
+    if (this._ntfyReady) void this.ntfy.settingsChanged();
+  }
+
+  /** Text fields: apply once typing pauses, not on every keystroke. */
+  private _ntfySettingsSoon = debounce(() => this.phoneRemindersChanged(), 4000, true);
+  phoneSettingsEdited(): void {
+    this._ntfySettingsSoon();
   }
 
   private runNotifications(): void {
-    scheduleNotifications(this.settings, this._notifiedToday, this.app);
+    scheduleNotifications(this.settings, this._notifiedToday, this.app,
+      (id, date, lead) => this.ntfy.isPushed(id, date, lead));
   }
 
   private async loadDismissedRecurring(): Promise<void> {

@@ -1,4 +1,5 @@
 import { App, Notice } from "obsidian";
+import { cardIdOf } from "./agent/card-id";
 import type { CockpitBoardSettings } from "./types";
 import { fmStr, formatDateLocal } from "./ui/dom-helpers.js";
 import { getMarkdownFilesAt } from "./vault-helpers";
@@ -21,14 +22,12 @@ export function scheduleNotifications(
   settings: CockpitBoardSettings,
   notifiedToday: Set<string>,
   app: App,
+  /** Whether the phone push for this card, date and lead is on the server. */
+  pushed?: (cardId: string, date: string, lead: number) => boolean,
 ): void {
   const now = new Date();
   const todayStr = formatDateLocal(now);
   const leads = parseLeadMinutes(settings.notifyLeadMinutes);
-  // The phone buzzes for the same reminder; a second buzz from the laptop
-  // adds nothing. The in-app Notice stays.
-  const phoneTakesOver = settings.ntfyEnabled && settings.ntfySkipSystemNotify &&
-    !!settings.ntfyServer.trim() && !!settings.ntfyTopic.trim();
 
   // Keys carry the date, so yesterday's entries are dead weight in a
   // long-running session.
@@ -68,7 +67,11 @@ export function scheduleNotifications(
     const body = reminderText(fmStr(fm.title) || child.basename, fmStr(fm.project), mins);
 
     new Notice(`🔔 ${body}`, 10000);
-    if (settings.notifySystem && !phoneTakesOver) systemNotify(body, timeStr);
+    // When the phone push for this very reminder is known to be on the
+    // server, the phone buzzes; a second buzz from the laptop adds nothing.
+    // Otherwise (not armed, last sync failed) the desktop still warns.
+    const phoneHasIt = settings.ntfySkipSystemNotify && !!pushed?.(cardIdOf(app, child), todayStr, lead);
+    if (settings.notifySystem && !phoneHasIt) systemNotify(body, timeStr);
   }
 }
 

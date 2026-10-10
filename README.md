@@ -154,8 +154,10 @@ as a normal notification at the right time, even when Obsidian is closed, and
 tapping it opens the card on the board.
 
 **Network use.** Off by default; while off the plugin makes no network
-calls. When on, it sends the card's title, project, time and board link to
-the server you configure, nothing else. Use a server you trust: your own, or
+calls, except to cancel reminders this device scheduled before it was
+turned off (retried until the server confirms). When on, it sends the
+card's title, project, time and board link to the server you configure,
+nothing else. Use a server you trust: your own, or
 the public ntfy.sh with a hard-to-guess topic and access control.
 
 **Setup:**
@@ -173,7 +175,8 @@ the public ntfy.sh with a hard-to-guess topic and access control.
 
 The token is stored in the plugin's `data.json`, which syncs with your vault
 (and may end up in git or a backup), so it must not be an admin or read
-token: write-only, one topic.
+token: write-only, one topic. It is only ever sent over `https://` (or to
+`localhost`); with a plain `http://` server, reminders pause.
 
 **How it behaves:**
 
@@ -182,7 +185,17 @@ token: write-only, one topic.
 - Each reminder has a fixed ID (card, date, lead time). A card marked done,
   deleted, moved out of the tasks folder or given another time or date has
   its pending reminders replaced or cancelled on the server, so the old one
-  does not fire.
+  does not fire. Any open device does this, not only the one that scheduled
+  the reminder: each remembers the timed cards it has seen and cancels the
+  old reminders of a card that changed. Reminders that already fired are
+  never touched.
+- Known gap: a card that was created *and* then changed or deleted while
+  only the device that scheduled its reminder had seen it, with that device
+  now closed, keeps its old reminder until that device opens again. A done
+  card is always covered: any device cancels a done card's reminders.
+- Known limitation: fire times use each device's own time zone. Keep the
+  devices that run Obsidian in the same zone, or they schedule the same
+  reminder at different times.
 - Laptop and phone both open: each device posts the same IDs, so you get one
   notification, not two. Each device also re-sends its reminders every 30
   minutes, which corrects a device that armed an old version before its
@@ -191,6 +204,9 @@ token: write-only, one topic.
   notification while phone reminders are on, so a reminder buzzes once. The
   in-app notice still shows.
 - Turning the feature off cancels the reminders this device scheduled.
+- The desktop system notification is only skipped for a reminder this
+  device knows is on the server; when scheduling failed, the desktop still
+  notifies.
 
 ## Running Agents (desktop)
 
