@@ -172,8 +172,11 @@ test("local herdr: workspace, pane run, metadata; hostile prompt verbatim", { sk
   assert.ok(ws, summary);
   try {
     expectArgv(await waitForArgv(), dir, hostile);
-    const info = execFileSync("herdr", ["workspace", "get", ws]).toString();
-    assert.match(info, /CB-9/);
+    const info = JSON.parse(execFileSync("herdr", ["workspace", "get", ws]).toString()).result.workspace;
+    assert.match(info.label, /^CB-9 /);
+    // sheprd reads these tokens; they must actually reach the workspace.
+    assert.equal(info.tokens?.card, "CB-9");
+    assert.equal(info.tokens?.card_link, "obsidian://cockpit-board?vault=My%20Vault&card=CB-9");
   } finally {
     execFileSync("herdr", ["workspace", "close", ws]);
   }

@@ -325,11 +325,15 @@ async function launchHerdr(ctx: Ctx, plan: LaunchPlan, promptFile: string): Prom
     await herdr(ctx, plan, ["pane", "run", pane, line]);
   }
 
-  // Display-only metadata so sheprd can link the workspace to its card.
+  // Display-only metadata: sheprd shows "card <id>" with card_link clickable.
+  // herdr 0.9.3 wants the workspace id first. Optional, so a failure only
+  // goes to the console.
   try {
-    await herdr(ctx, plan, ["workspace", "report-metadata", "--source", "cockpit-board",
-      "--token", `card=${ctx.cardId}`, "--token", `card_link=${boardLink(ctx.app, plan.file)}`, ws], 5000);
-  } catch { /* older herdr: metadata is optional */ }
+    await herdr(ctx, plan, ["workspace", "report-metadata", ws, "--source", "cockpit-board",
+      "--token", `card=${ctx.cardId}`, "--token", `card_link=${boardLink(ctx.app, plan.file)}`], 5000);
+  } catch (e: unknown) {
+    console.warn("Cockpit Board: herdr workspace metadata not set", e);
+  }
   return `herdr ${ws}`;
 }
 
