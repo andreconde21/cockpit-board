@@ -11,6 +11,8 @@ cutting the release.
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-10
+
 ### Added
 - Copy card references from the card menu (board, calendar, the open card's
   "..." menu) and as commands: card ID, path, agent context (title, links,
