@@ -13,6 +13,7 @@ A dynamic Kanban board for [Obsidian](https://obsidian.md) driven by frontmatter
 - **Archive Search** — Search completed tasks in a YYYY/MM/DD folder structure
 - **Auto-Archive** — Optionally move done cards into the archive folder after a configurable number of days
 - **Due-Soon Notifications** — Configurable lead times (default 15 and 1 minutes before a task's time), with optional desktop notifications that reach you when Obsidian is in the background
+- **Phone Reminders** — Opt-in: the same reminders as push notifications through [ntfy](https://ntfy.sh), even with Obsidian closed; tapping one opens the card
 - **Mobile Optimized** — Tab-based column switching with swipe gestures
 - **Privacy Mode** — Blur card titles (hover to reveal) for screen sharing
 - **Focus Mode** — Show only Today + In Progress columns (press `F`)
@@ -142,6 +143,54 @@ obsidian://cockpit-board?vault=MyVault&card=Tasks/fix-login.md
 ```
 
 `card` is an ID, a file name, or a vault path.
+
+## Phone Reminders (ntfy)
+
+Obsidian cannot raise phone notifications itself, and its timers stop once
+the app is in the background. With phone reminders on, Cockpit hands each
+reminder (a card due with a `time`, at each lead time) to an
+[ntfy](https://ntfy.sh) server as a scheduled message. The ntfy app shows it
+as a normal notification at the right time, even when Obsidian is closed, and
+tapping it opens the card on the board.
+
+**Network use.** Off by default; while off the plugin makes no network
+calls. When on, it sends the card's title, project, time and board link to
+the server you configure, nothing else. Use a server you trust: your own, or
+the public ntfy.sh with a hard-to-guess topic and access control.
+
+**Setup:**
+
+1. Install the ntfy app ([Android](https://play.google.com/store/apps/details?id=io.heckel.ntfy),
+   [iOS](https://apps.apple.com/app/ntfy/id1625396347), or F-Droid).
+2. In the app, add your server (Settings > Default server, or per
+   subscription) and log in as a user who may read the topic.
+3. Subscribe to the topic, e.g. `cockpit`.
+4. On the server, create a **write-only** access token for that one topic
+   (self-hosted: `ntfy user add`, `ntfy access <user> <topic> write-only`,
+   `ntfy token add <user>`).
+5. In *Settings > Phone reminders (ntfy)*: turn it on, enter the server URL,
+   the topic and the token, then press *Send test push*.
+
+The token is stored in the plugin's `data.json`, which syncs with your vault
+(and may end up in git or a backup), so it must not be an admin or read
+token: write-only, one topic.
+
+**How it behaves:**
+
+- Reminders are scheduled up to *Schedule ahead* hours in advance (default
+  24, at most 72), then topped up while Obsidian is open on any device.
+- Each reminder has a fixed ID (card, date, lead time). A card marked done,
+  deleted, moved out of the tasks folder or given another time or date has
+  its pending reminders replaced or cancelled on the server, so the old one
+  does not fire.
+- Laptop and phone both open: each device posts the same IDs, so you get one
+  notification, not two. Each device also re-sends its reminders every 30
+  minutes, which corrects a device that armed an old version before its
+  vault had synced.
+- *Skip desktop notification* (on by default) leaves out the desktop system
+  notification while phone reminders are on, so a reminder buzzes once. The
+  in-app notice still shows.
+- Turning the feature off cancels the reminders this device scheduled.
 
 ## Running Agents (desktop)
 
@@ -290,6 +339,7 @@ Timezone: UTC times convert automatically. Times stamped with a zone (Outlook us
 - **External calendars** — Outlook/ICS feeds imported with a fixed label (one-way, editable, never overwritten)
 - **Reminder lead times** — Minutes before a card's time to warn, comma separated (default `15,1`). Each lead fires once per card per day
 - **Desktop notifications** — Also send a system notification, so reminders arrive when Obsidian is in the background (desktop only)
+- **Phone reminders (ntfy)** — Off by default. Server, topic, write-only access token, how many hours ahead to schedule, skip the desktop notification, send a test push
 - **Card open mode** — Split pane, sidebar, or modal
 - **Mobile default column** — Which column shows first on mobile
 - **Privacy mode** — Blur card titles
