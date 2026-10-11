@@ -261,12 +261,12 @@ function showCardContextMenu(e: MouseEvent, card: CardData, ctx: CardRendererCon
   // Also add configured label colors
   for (const l of Object.keys(ctx.settings.labelColors)) allLabels.add(l);
 
-  for (const label of allLabels) {
+  for (const label of Array.from(allLabels)) {
     if (card.labels.includes(label)) continue;
     menu.addItem((i) => i.setTitle(`+ ${label}`).setIcon("tag")
       .onClick(() => {
         void ctx.app.fileManager.processFrontMatter(card.file, (fm: CardFrontmatter) => {
-          const labels = Array.isArray(fm.labels) ? fm.labels : [];
+          const labels = Array.isArray(fm.labels) ? fm.labels.filter((l): l is string => typeof l === "string") : [];
           fm.labels = [...labels, label];
         });
       }));
@@ -427,7 +427,7 @@ function attachDragHandlers(el: HTMLElement, card: CardData, ctx: CardRendererCo
             ctx._bulkOperating = true;
             try {
               const count = ctx.selectedCards.size;
-              for (const { card: selCard } of ctx.selectedCards.values()) {
+              for (const { card: selCard } of Array.from(ctx.selectedCards.values())) {
                 if (selCard.column !== targetCol.id) await ctx.handleDrop(selCard, targetCol, card, ctrlDrag);
               }
               ctx.toast(`Moved ${count} card(s) to ${targetCol.label}`);

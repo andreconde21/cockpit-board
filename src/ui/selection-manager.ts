@@ -59,7 +59,7 @@ export function selectRange(card: CardData, el: HTMLElement, ctx: SelectionConte
 }
 
 export function clearSelection(ctx: SelectionContext): void {
-  for (const { el } of ctx.selectedCards.values()) {
+  for (const { el } of Array.from(ctx.selectedCards.values())) {
     el.classList.remove("cockpit-card-selected");
   }
   ctx.selectedCards.clear();
@@ -94,7 +94,7 @@ export function updateSelectionBar(ctx: SelectionContext): void {
   addLabelBtn.addEventListener("click", (e) => {
     const menu = new Menu();
     const allLabels = collectLabels(ctx);
-    for (const label of allLabels) {
+    for (const label of Array.from(allLabels)) {
       menu.addItem((i) => i.setTitle(label).onClick(() => void bulkAddLabel(label, ctx)));
     }
     menu.showAtMouseEvent(e);
@@ -104,8 +104,8 @@ export function updateSelectionBar(ctx: SelectionContext): void {
   rmLabelBtn.addEventListener("click", (e) => {
     const menu = new Menu();
     const selectedLabels = new Set<string>();
-    for (const { card } of ctx.selectedCards.values()) card.labels.forEach(l => selectedLabels.add(l));
-    for (const label of selectedLabels) {
+    for (const { card } of Array.from(ctx.selectedCards.values())) card.labels.forEach(l => selectedLabels.add(l));
+    for (const label of Array.from(selectedLabels)) {
       menu.addItem((i) => i.setTitle(label).onClick(() => void bulkRemoveLabel(label, ctx)));
     }
     menu.showAtMouseEvent(e);
@@ -134,7 +134,7 @@ export function showBulkMenu(e: MouseEvent, ctx: SelectionContext): void {
   }
   menu.addSeparator();
   const allLabels = collectLabels(ctx);
-  for (const label of allLabels) {
+  for (const label of Array.from(allLabels)) {
     menu.addItem((i) => i.setTitle(`+ ${label}`).setIcon("tag")
       .onClick(() => void bulkAddLabel(label, ctx)));
   }
@@ -147,14 +147,14 @@ export function showBulkMenu(e: MouseEvent, ctx: SelectionContext): void {
   menu.addItem((i) => i.setTitle("Clear due dates").setIcon("calendar-x").onClick(() => void bulkClearDueDate(ctx)));
   menu.addSeparator();
   const selectedLabels = new Set<string>();
-  for (const { card } of ctx.selectedCards.values()) card.labels.forEach(l => selectedLabels.add(l));
+  for (const { card } of Array.from(ctx.selectedCards.values())) card.labels.forEach(l => selectedLabels.add(l));
   if (selectedLabels.size > 0) {
-    for (const label of selectedLabels) {
+    for (const label of Array.from(selectedLabels)) {
       menu.addItem((i) => i.setTitle(`- ${label}`).setIcon("x").onClick(() => void bulkRemoveLabel(label, ctx)));
     }
     menu.addSeparator();
   }
-  const files = [...ctx.selectedCards.values()].map(({ card }) => card.file);
+  const files = Array.from(ctx.selectedCards.values()).map(({ card }) => card.file);
   menu.addItem((i) => i.setTitle("Copy each card ID").setIcon("hash").onClick(() => void ctx.cardActions.copyMany(files, "id")));
   menu.addItem((i) => i.setTitle("Copy each card path").setIcon("copy").onClick(() => void ctx.cardActions.copyMany(files, "path")));
   menu.addSeparator();
@@ -177,7 +177,7 @@ async function bulkMoveTo(col: ColumnConfig, ctx: SelectionContext): Promise<voi
   ctx._bulkOperating = true;
   try {
     const count = ctx.selectedCards.size;
-    for (const { card } of ctx.selectedCards.values()) {
+    for (const { card } of Array.from(ctx.selectedCards.values())) {
       await ctx.handleDrop(card, col);
     }
     ctx.toast(`Moved ${count} card(s) to ${col.label}`);
@@ -192,7 +192,7 @@ async function bulkMoveTo(col: ColumnConfig, ctx: SelectionContext): Promise<voi
 async function bulkAddLabel(label: string, ctx: SelectionContext): Promise<void> {
   ctx.pauseRefresh = true;
   try {
-    for (const { card } of ctx.selectedCards.values()) {
+    for (const { card } of Array.from(ctx.selectedCards.values())) {
       await ctx.app.fileManager.processFrontMatter(card.file, (fm: CardFrontmatter) => {
         const labels = Array.isArray(fm.labels) ? fm.labels : [];
         if (!labels.includes(label)) fm.labels = [...labels, label];
@@ -208,7 +208,7 @@ async function bulkAddLabel(label: string, ctx: SelectionContext): Promise<void>
 async function bulkRemoveLabel(label: string, ctx: SelectionContext): Promise<void> {
   ctx.pauseRefresh = true;
   try {
-    for (const { card } of ctx.selectedCards.values()) {
+    for (const { card } of Array.from(ctx.selectedCards.values())) {
       await ctx.app.fileManager.processFrontMatter(card.file, (fm: CardFrontmatter) => {
         fm.labels = (Array.isArray(fm.labels) ? fm.labels : []).filter((l) => l !== label);
       });
@@ -224,7 +224,7 @@ async function bulkSetDate(dateStr: string, ctx: SelectionContext): Promise<void
   ctx.pauseRefresh = true;
   ctx._bulkOperating = true;
   try {
-    for (const { card } of ctx.selectedCards.values()) {
+    for (const { card } of Array.from(ctx.selectedCards.values())) {
       await ctx.updateCardProperty(card.file, { due: dateStr, status: "scheduled" });
     }
     ctx.toast(`Date set to ${dateStr} on ${ctx.selectedCards.size} card(s)`);
@@ -243,7 +243,7 @@ function bulkSetDateTime(ctx: SelectionContext): void {
 async function bulkClearDueDate(ctx: SelectionContext): Promise<void> {
   ctx.pauseRefresh = true;
   try {
-    for (const { card } of ctx.selectedCards.values()) {
+    for (const { card } of Array.from(ctx.selectedCards.values())) {
       await ctx.updateCardProperty(card.file, { due: "", time: "" });
     }
     ctx.toast(`Cleared dates on ${ctx.selectedCards.size} card(s)`);
@@ -257,7 +257,7 @@ async function bulkClearDueDate(ctx: SelectionContext): Promise<void> {
 export async function bulkMarkDone(ctx: SelectionContext): Promise<void> {
   ctx.pauseRefresh = true;
   try {
-    for (const { card } of ctx.selectedCards.values()) {
+    for (const { card } of Array.from(ctx.selectedCards.values())) {
       await ctx.app.fileManager.processFrontMatter(card.file, (fm: CardFrontmatter) => {
         fm.status = "done";
         fm.completed = todayStr();
@@ -275,7 +275,7 @@ export function bulkDelete(ctx: SelectionContext): void {
     void (async () => {
       ctx.pauseRefresh = true;
       try {
-        for (const { card } of ctx.selectedCards.values()) {
+        for (const { card } of Array.from(ctx.selectedCards.values())) {
           await ctx.app.fileManager.trashFile(card.file);
         }
       } finally {

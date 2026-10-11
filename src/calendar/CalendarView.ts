@@ -29,7 +29,7 @@ export async function renderCalendarView(
     if (!c.due) return false;
     if (q && !`${c.title} ${c.project} ${c.labels.join(" ")}`.toLowerCase().includes(q)) return false;
     if (ctx.activeFilters && ctx.activeFilters.size > 0) {
-      if (![...ctx.activeFilters].some(f => c.labels.includes(f))) return false;
+      if (!Array.from(ctx.activeFilters).some(f => c.labels.includes(f))) return false;
     }
     return true;
   });

@@ -92,7 +92,7 @@ export function createColumn(col: ColumnConfig, cards: CardData[], overdueCount:
           ctx._bulkOperating = true;
           try {
             const count = ctx.selectedCards.size;
-            for (const { card: selCard } of ctx.selectedCards.values()) {
+            for (const { card: selCard } of Array.from(ctx.selectedCards.values())) {
               if (selCard.column !== col.id) await ctx.handleDrop(selCard, col, undefined, ctrlDrag);
             }
             ctx.toast(`Moved ${count} card(s) to ${col.label}`);

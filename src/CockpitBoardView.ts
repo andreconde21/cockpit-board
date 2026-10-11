@@ -127,7 +127,7 @@ export class CockpitBoardView extends ItemView {
         e.preventDefault();
         this.pauseRefresh = true;
         void (async () => {
-          for (const { card } of this.selectedCards.values()) {
+          for (const { card } of Array.from(this.selectedCards.values())) {
             await this.updateCardProperty(card.file, { status: "scheduled", due: todayStr() });
           }
           this.pauseRefresh = false;
@@ -279,7 +279,7 @@ export class CockpitBoardView extends ItemView {
     filterBtn.addEventListener("click", (e) => {
       const menu = new Menu();
       const allLabels = this.collectAllLabels(cards);
-      for (const label of allLabels) {
+      for (const label of Array.from(allLabels)) {
         const active = this.activeFilters.has(label);
         menu.addItem((i) => i.setTitle(`${active ? "\u2713 " : "  "}${label}`)
           .onClick(() => {
@@ -503,7 +503,7 @@ export class CockpitBoardView extends ItemView {
     Array.from(contentEl.querySelectorAll(".cockpit-card")).forEach(c => {
       const el = c as HTMLElement;
       const textMatch = !q || (el.textContent || "").toLowerCase().includes(q);
-      const labelMatch = this.activeFilters.size === 0 || [...this.activeFilters].some(f => (el.dataset.labels || "").includes(f));
+      const labelMatch = this.activeFilters.size === 0 || Array.from(this.activeFilters).some(f => (el.dataset.labels || "").includes(f));
       el.classList.toggle("cockpit-card-hidden", !(textMatch && labelMatch));
     });
   }
@@ -684,7 +684,7 @@ export class CockpitBoardView extends ItemView {
       this._bulkOperating = true;
       try {
         const count = this.selectedCards.size;
-        for (const { card } of this.selectedCards.values()) {
+        for (const { card } of Array.from(this.selectedCards.values())) {
           await this.updateCardProperty(card.file, updates);
         }
         this.toast(`Updated date & time on ${count} card(s)`);

@@ -3,7 +3,7 @@
   "private": true,
   "description": "Obsidian's review lint rules, kept out of the plugin's own dependencies so the directory scanner installs exactly what the plugin needs.",
   "scripts": {
-    "lint": "cd ../.. && tools/lint/node_modules/.bin/eslint -c tools/lint/eslint.config.mjs src/"
+    "lint": "cd ../.. && tools/lint/node_modules/.bin/eslint -c tools/lint/eslint.config.mjs src/ && tools/lint/node_modules/.bin/eslint -c tools/lint/eslint.scanner.config.mjs src/"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",

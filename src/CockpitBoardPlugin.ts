@@ -112,7 +112,7 @@ export default class CockpitBoardPlugin extends Plugin {
 
     // Timer tick — update active timer displays every 10 seconds
     this.registerInterval(window.setInterval(() => {
-      for (const [path, timer] of this.activeTimers) {
+      for (const [path, timer] of Array.from(this.activeTimers)) {
         const elapsed = Math.floor((Date.now() - timer.startTime) / 60000) + timer.previousMinutes;
         const el = activeDocument.querySelector(`.cockpit-card[data-path="${CSS.escape(path)}"] .cockpit-timer-display`);
         if (el) {
@@ -169,7 +169,7 @@ export default class CockpitBoardPlugin extends Plugin {
   }
 
   onunload(): void {
-    for (const [path, timer] of this.activeTimers) {
+    for (const [path, timer] of Array.from(this.activeTimers)) {
       const elapsed = Math.floor((Date.now() - timer.startTime) / 60000) + timer.previousMinutes;
       const file = this.app.vault.getAbstractFileByPath(path);
       if (file instanceof TFile) {
@@ -244,7 +244,7 @@ export default class CockpitBoardPlugin extends Plugin {
     this._duplicatesReported = true;
     const dupes = findDuplicateIds(this.app, this.settings);
     if (dupes.size === 0) return;
-    const list = [...dupes.entries()].slice(0, 5).map(([id, files]) => `${id} (${files.length} cards)`).join(", ");
+    const list = Array.from(dupes.entries()).slice(0, 5).map(([id, files]) => `${id} (${files.length} cards)`).join(", ");
     new Notice(`Cockpit board: duplicate card IDs: ${list}. Run "Assign an ID to cards without one" to renumber the newer cards.`, 10000);
   }
 
