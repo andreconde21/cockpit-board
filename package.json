@@ -1,6 +1,6 @@
 {
   "name": "cockpit-board",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Dynamic Kanban board from frontmatter properties with calendar views, timers, and recurring tasks.",
   "main": "main.js",
   "scripts": {

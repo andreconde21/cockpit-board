@@ -11,6 +11,8 @@ cutting the release.
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-10-11
+
 ### Added
 - Phone reminders (opt-in, off by default): the 15/1-minute reminders as
   scheduled push notifications through an ntfy server, shown by the ntfy app
