@@ -296,7 +296,7 @@ export async function syncExternalSource(
   // (Outlook edit, timezone correction). Update that card in place instead of
   // importing a duplicate — but only while it still holds the imported values.
   const keyByMeeting = new Map<string, string>();
-  for (const key of knownKeys) {
+  for (const key of Array.from(knownKeys)) {
     const id = meetingIdFor(source.id, key);
     if (id && !keyByMeeting.has(id)) keyByMeeting.set(id, key);
   }

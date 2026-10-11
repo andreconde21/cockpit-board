@@ -170,7 +170,7 @@ export function desiredReminders(cards: ReminderCard[], leads: number[], now: Da
  */
 export function snapshotCards(cards: ReminderCard[], prev: Record<string, SeenCard> = {}, unread: Set<string> = new Set()): Record<string, SeenCard> {
   const seen: Record<string, SeenCard> = {};
-  for (const path of unread) if (prev[path]) seen[path] = prev[path];
+  for (const path of Array.from(unread)) if (prev[path]) seen[path] = prev[path];
   for (const c of cards) {
     if (c.due && c.time) seen[c.path] = { id: c.id, due: c.due, time: c.time, done: c.status === "done" };
   }
@@ -211,13 +211,13 @@ export function staleReminders(
     if (cur && cur.status !== "done" && cur.id === old.id && cur.due === old.due && cur.time === old.time) continue;
     add(old);
   }
-  return [...out].map(([seqId, at]) => ({ seqId, at }));
+  return Array.from(out).map(([seqId, at]) => ({ seqId, at }));
 }
 
 /** Reminders of unread files, as last seen: neither posted nor cancelled until the file is read. */
 export function heldReminders(prev: Record<string, SeenCard>, unread: Set<string>, leads: number[]): Set<string> {
   const held = new Set<string>();
-  for (const path of unread) {
+  for (const path of Array.from(unread)) {
     const old = prev[path];
     if (old && !old.done) for (const { seqId } of leadTimes(old, leads)) held.add(seqId);
   }

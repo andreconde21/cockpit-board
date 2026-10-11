@@ -91,7 +91,7 @@ export function mergeMachines(
   // An SSH host that a herdr machine already points at is that machine
   // (herdr "dev" with target "development-central"), not a second entry.
   const herdrTargets = new Map<string, Machine>();
-  for (const m of byName.values()) if (m.herdrDestination) herdrTargets.set(m.herdrDestination, m);
+  for (const m of Array.from(byName.values())) if (m.herdrDestination) herdrTargets.set(m.herdrDestination, m);
   for (const host of sshHosts) {
     const viaHerdr = herdrTargets.get(host);
     if (viaHerdr) { if (!viaHerdr.sources.includes("ssh")) viaHerdr.sources.push("ssh"); continue; }
@@ -101,7 +101,7 @@ export function mergeMachines(
     const m = get(name);
     if (!m.sources.includes("manual")) m.sources.push("manual");
   }
-  return [...byName.values()];
+  return Array.from(byName.values());
 }
 
 /** Apply a machine's overrides; empty fields fall back to defaults. */

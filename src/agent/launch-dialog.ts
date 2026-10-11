@@ -6,7 +6,7 @@ import { cardIdOf } from "./card-id";
 import { copyText } from "./card-actions";
 import { cardTitle } from "./context";
 import { LaunchError, launchAgent, localAvailability, remoteCardFile, renderPrompt, type Availability, type LaunchPlan } from "./launcher";
-import { discoverMachines, resolveMachine, type ResolvedMachine } from "./machines";
+import { discoverMachines, resolveMachine, type Machine, type ResolvedMachine } from "./machines";
 
 const LOCAL = "";
 
@@ -59,7 +59,7 @@ export class LaunchDialog extends Modal {
     const s = this.plugin.settings;
     const [avail, machines] = await Promise.all([
       localAvailability(s),
-      node ? discoverMachines(node, s).catch(() => []) : Promise.resolve([]),
+      node ? discoverMachines(node, s).catch((): Machine[] => []) : Promise.resolve<Machine[]>([]),
     ]);
     this.avail = avail;
     this.machines = machines.map((m) => resolveMachine(m, s));

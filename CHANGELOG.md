@@ -11,6 +11,12 @@ cutting the release.
 
 ## [Unreleased]
 
+### Fixed
+
+- Type-safety warnings on the community directory scorecard: loops and
+  spreads over Maps and Sets now type-check under the default TypeScript
+  target too. `npm run lint` runs that check as a second pass.
+
 ## [1.5.1] - 2026-10-11
 
 ### Added

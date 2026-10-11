@@ -14,7 +14,7 @@ export function parseLeadMinutes(raw: string): number[] {
     .split(",")
     .map(v => parseInt(v.trim(), 10))
     .filter(n => !isNaN(n) && n > 0 && n <= 1440);
-  const unique = [...new Set(leads)];
+  const unique = Array.from(new Set(leads));
   return unique.length ? unique.sort((a, b) => b - a) : DEFAULT_LEADS;
 }
 
@@ -31,7 +31,7 @@ export function scheduleNotifications(
 
   // Keys carry the date, so yesterday's entries are dead weight in a
   // long-running session.
-  for (const key of notifiedToday) {
+  for (const key of Array.from(notifiedToday)) {
     if (!key.includes(`-${todayStr}-`)) notifiedToday.delete(key);
   }
 

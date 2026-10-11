@@ -85,7 +85,7 @@ export function findDuplicateIds(app: App, settings: CockpitBoardSettings): Map<
     byId.set(id, list);
   }
   const dupes = new Map<string, TFile[]>();
-  for (const [id, files] of byId) {
+  for (const [id, files] of Array.from(byId)) {
     if (files.length > 1) dupes.set(id, files.sort(byAge(app)));
   }
   return dupes;
@@ -106,7 +106,7 @@ function byAge(app: App): (a: TFile, b: TFile) => number {
  */
 export async function assignMissingIds(app: App, settings: CockpitBoardSettings): Promise<number> {
   let changed = 0;
-  for (const files of findDuplicateIds(app, settings).values()) {
+  for (const files of Array.from(findDuplicateIds(app, settings).values())) {
     for (const file of files.slice(1)) {
       await app.fileManager.processFrontMatter(file, (fm: CardFrontmatter) => { fm.id = nextCardId(app, settings); });
       changed++;
