@@ -11,6 +11,8 @@ cutting the release.
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-10-11
+
 ### Fixed
 
 - Type-safety warnings on the community directory scorecard: loops and
