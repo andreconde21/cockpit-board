@@ -1,4 +1,5 @@
 import { App, Notice } from "obsidian";
+import { cardIdOf } from "./agent/card-id";
 import type { CockpitBoardSettings } from "./types";
 import { fmStr, formatDateLocal } from "./ui/dom-helpers.js";
 import { getMarkdownFilesAt } from "./vault-helpers";
@@ -21,6 +22,8 @@ export function scheduleNotifications(
   settings: CockpitBoardSettings,
   notifiedToday: Set<string>,
   app: App,
+  /** Whether the phone push for this card, date and lead is on the server. */
+  pushed?: (cardId: string, date: string, lead: number) => boolean,
 ): void {
   const now = new Date();
   const todayStr = formatDateLocal(now);
@@ -60,15 +63,22 @@ export function scheduleNotifications(
       if (l >= lead) notifiedToday.add(`${child.path}-${todayStr}-${l}`);
     }
 
-    const title = fmStr(fm.title) || child.basename;
-    const project = fmStr(fm.project);
-    const prefix = project ? `[${project}] ` : "";
     const mins = Math.max(1, Math.round(minutesUntil));
-    const body = `${prefix}${title} starts in ${mins} minute${mins === 1 ? "" : "s"}`;
+    const body = reminderText(fmStr(fm.title) || child.basename, fmStr(fm.project), mins);
 
     new Notice(`🔔 ${body}`, 10000);
-    if (settings.notifySystem) systemNotify(body, timeStr);
+    // When the phone push for this very reminder is known to be on the
+    // server, the phone buzzes; a second buzz from the laptop adds nothing.
+    // Otherwise (not armed, last sync failed) the desktop still warns.
+    const phoneHasIt = settings.ntfySkipSystemNotify && !!pushed?.(cardIdOf(app, child), todayStr, lead);
+    if (settings.notifySystem && !phoneHasIt) systemNotify(body, timeStr);
   }
+}
+
+/** "[Project] Title starts in N minutes", shared with the phone push. */
+export function reminderText(title: string, project: string, mins: number): string {
+  const prefix = project ? `[${project}] ` : "";
+  return `${prefix}${title} starts in ${mins} minute${mins === 1 ? "" : "s"}`;
 }
 
 // An in-app Notice is only seen when Obsidian is on screen; a desktop

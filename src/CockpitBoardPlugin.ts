@@ -1,4 +1,4 @@
-import { Notice, Plugin, TFile } from "obsidian";
+import { Notice, Plugin, TFile, debounce } from "obsidian";
 import type { ObsidianProtocolData } from "obsidian";
 import type { CardFrontmatter, CockpitBoardSettings, TimerData, PomodoroSession } from "./types";
 import { VIEW_TYPE, DEFAULT_SETTINGS, DEFAULT_COLUMNS } from "./constants";
@@ -8,6 +8,7 @@ import { checkRecurring } from "./recurring";
 import { archiveDoneCards } from "./archive/AutoArchive";
 import { deletedSeenKeys, syncAllExternalCalendars, type ExternalSeenMap } from "./external-calendar/sync";
 import { scheduleNotifications } from "./notifications";
+import { NtfyReminders } from "./ntfy-sync";
 import { PomodoroEngine } from "./pomodoro";
 import { formatDateLocal, getTomorrow, parseDate, todayStr } from "./ui/dom-helpers.js";
 import { isInFolder } from "./vault-helpers";
@@ -22,16 +23,19 @@ export default class CockpitBoardPlugin extends Plugin {
   activeTimers = new Map<string, TimerData>();
   pomodoro!: PomodoroEngine;
   cardActions!: CardActions;
+  ntfy!: NtfyReminders;
   private _dismissedRecurring: Record<string, string> = {};
   private _externalSeen: ExternalSeenMap = {};
   private _externalSyncing = false;
   private _lastExternalSyncMs = 0;
   private _notifiedToday = new Set<string>();
   private _statusBarEl: HTMLElement | null = null;
+  private _ntfyReady = false;
 
   async onload(): Promise<void> {
     await this.loadSettings();
     this.cardActions = new CardActions(this);
+    this.ntfy = new NtfyReminders(this.app, () => this.settings);
 
     this.pomodoro = new PomodoroEngine(
       this.settings,
@@ -137,6 +141,7 @@ export default class CockpitBoardPlugin extends Plugin {
       // The metadata cache is complete once it has resolved every file.
       this.registerEvent(this.app.metadataCache.on("resolved", () => this.reportDuplicateIds()));
       if (this.cardActions.agentsEnabled()) void cleanOldRuns();
+      this.startPhoneReminders();
     });
 
     // Recurring + auto-archive check every hour
@@ -404,8 +409,50 @@ export default class CockpitBoardPlugin extends Plugin {
     }
   }
 
+  // ── Phone reminders (ntfy) ──
+  private startPhoneReminders(): void {
+    // Wait for the first full resolve, so the cache has read every card. A
+    // plugin enabled mid-session may never see one; the timer covers that,
+    // and files still unread then are held as last seen. The first resolve
+    // syncs again either way, with every card read.
+    let resolvedOnce = false;
+    const ready = () => {
+      this._ntfyReady = true;
+      void this.ntfy.sync();
+    };
+    this.registerEvent(this.app.metadataCache.on("resolved", () => {
+      if (resolvedOnce) return;
+      resolvedOnce = true;
+      ready();
+    }));
+    this.registerInterval(window.setTimeout(() => { if (!this._ntfyReady) ready(); }, 15000));
+
+    const armSoon = debounce(() => { void this.ntfy.sync(); }, 5000, true);
+    this.register(() => { armSoon.cancel(); });
+    const touches = (...paths: string[]) => this._ntfyReady && this.settings.ntfyEnabled &&
+      paths.some((p) => isInFolder(p, this.settings.folder));
+    this.registerEvent(this.app.metadataCache.on("changed", (file) => { if (touches(file.path)) armSoon(); }));
+    this.registerEvent(this.app.vault.on("delete", (file) => { if (touches(file.path)) armSoon(); }));
+    this.registerEvent(this.app.vault.on("rename", (file, oldPath) => { if (touches(file.path, oldPath)) armSoon(); }));
+
+    // Cards entering the arm-ahead window, the 30-minute re-send, and retries
+    // of DELETEs that failed (also while off; nothing is sent when none are left).
+    this.registerInterval(window.setInterval(() => {
+      if (this._ntfyReady) void this.ntfy.sync();
+    }, 600000));
+  }
+
+  /**
+   * After the ntfy settings change: arm with the new ones, cancelling what
+   * was armed on an old server or topic, or undo everything when switched off.
+   */
+  phoneRemindersChanged(): void {
+    if (this._ntfyReady) void this.ntfy.settingsChanged();
+  }
+
   private runNotifications(): void {
-    scheduleNotifications(this.settings, this._notifiedToday, this.app);
+    scheduleNotifications(this.settings, this._notifiedToday, this.app,
+      (id, date, lead) => this.ntfy.isPushed(id, date, lead));
   }
 
   private async loadDismissedRecurring(): Promise<void> {

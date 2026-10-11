@@ -11,6 +11,15 @@ cutting the release.
 
 ## [Unreleased]
 
+### Added
+- Phone reminders (opt-in, off by default): the 15/1-minute reminders as
+  scheduled push notifications through an ntfy server, shown by the ntfy app
+  even with Obsidian closed; tapping one opens the card. Done, deleted,
+  moved or retimed cards cancel or replace their pending reminders, and
+  several open devices give one notification. Settings: server, topic,
+  write-only token, schedule-ahead window, test push. Optionally skips the
+  desktop system notification while it is on.
+
 ## [1.5.0] - 2026-10-10
 
 ### Added
