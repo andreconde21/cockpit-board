@@ -13,12 +13,62 @@ export function nodeRequire(): NodeRequire | null {
   }
 }
 
+// The slice of Node the plugin uses, declared here rather than taken from
+// @types/node: the directory scorecard lints without dev dependencies, and
+// `typeof import("fs")` then comes out as an error type at every use.
+type Env = Record<string, string | undefined>;
+
+interface Stream {
+  on(event: "data", cb: (d: { toString(): string }) => void): void;
+}
+
+export interface ChildProcess {
+  stdout: Stream | null;
+  stderr: Stream | null;
+  stdin: { end(data?: string): void } | null;
+  on(event: "error", cb: (e: Error & { code?: string }) => void): void;
+  on(event: "close", cb: (code: number | null) => void): void;
+  once(event: "error", cb: (e: Error & { code?: string }) => void): void;
+  once(event: "spawn", cb: () => void): void;
+  kill(): void;
+  unref(): void;
+}
+
+interface SpawnOptions {
+  cwd?: string;
+  env?: Env;
+  shell?: boolean;
+  windowsHide?: boolean;
+  detached?: boolean;
+  stdio?: "ignore";
+}
+
+interface Stats {
+  isFile(): boolean;
+  isDirectory(): boolean;
+  mtimeMs: number;
+}
+
+type WriteOptions = "utf8" | { encoding: "utf8"; mode?: number };
+
 export interface NodeApis {
-  cp: typeof import("child_process");
-  fs: typeof import("fs");
-  os: typeof import("os");
-  path: typeof import("path");
-  process: typeof import("process");
+  cp: { spawn(cmd: string, args: string[], opts: SpawnOptions): ChildProcess };
+  fs: {
+    existsSync(p: string): boolean;
+    readdirSync(p: string): string[];
+    statSync(p: string): Stats;
+    promises: {
+      mkdir(p: string, opts: { recursive: boolean; mode?: number }): Promise<unknown>;
+      readdir(p: string): Promise<string[]>;
+      readFile(p: string, enc: "utf8"): Promise<string>;
+      rm(p: string, opts: { recursive: boolean; force: boolean }): Promise<void>;
+      stat(p: string): Promise<Stats>;
+      writeFile(p: string, data: string, opts: WriteOptions): Promise<void>;
+    };
+  };
+  os: { homedir(): string; tmpdir(): string };
+  path: { join(...parts: string[]): string };
+  process: { env: Env; platform: string };
 }
 
 /** The Node modules the launcher uses, or null on mobile. */
@@ -62,7 +112,7 @@ export function runProcess(node: NodeApis, cmd: string, args: string[], opts: Ru
     let stderr = "";
     let done = false;
     const finish = (r: RunResult) => { if (!done) { done = true; resolve(r); } };
-    let child: ReturnType<NodeApis["cp"]["spawn"]>;
+    let child: ChildProcess;
     try {
       child = node.cp.spawn(cmd, args, { cwd: opts.cwd, env: opts.env, shell: false, windowsHide: true });
     } catch (e: unknown) {

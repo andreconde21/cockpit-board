@@ -11,6 +11,14 @@ cutting the release.
 
 ## [Unreleased]
 
+### Fixed
+
+- The 123 type-safety warnings still on the directory scorecard after 1.5.2.
+  The scanner lints without `@types/node`, so the Node module types the
+  agent launcher used came out as error types. `src/node.ts` now declares
+  the small part of Node it uses, and the second `npm run lint` pass lints
+  under the same condition (it reports the same 123 on 1.5.2's code).
+
 ## [1.5.2] - 2026-10-11
 
 ### Fixed
