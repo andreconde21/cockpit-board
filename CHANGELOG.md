@@ -11,6 +11,8 @@ cutting the release.
 
 ## [Unreleased]
 
+## [1.5.3] - 2026-10-17
+
 ### Fixed
 
 - The 123 type-safety warnings still on the directory scorecard after 1.5.2.
